@@ -10,8 +10,7 @@ Its purpose is to serve as a security system capable of detect, recognize and al
 
 A working facial‑recognition prototype is available here:
 
-**[`/spikes/FaceRecognitionPOC`](spikes/FaceRecognitionPOC)**
-
+**[Face Recognition POC](Spikes/FaceRecognitionPOC)**
 This POC demonstrates:
 - Real‑time face detection and recognition running on a Raspberry Pi 5  
 - InsightFace models handling detection, embedding generation, and recognition  
