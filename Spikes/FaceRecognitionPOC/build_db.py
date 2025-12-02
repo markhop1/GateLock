@@ -7,10 +7,7 @@ from insightface.app import FaceAnalysis
 
 
 def ensure_normed_embedding(face):
-    """
-    Devuelve un embedding L2-normalizado (norma = 1).
-    Usa face.normed_embedding si existe, si no, normaliza face.embedding.
-    """
+    """Return an L2-normalized embedding. Use face.normed_embedding if available."""
     emb = getattr(face, "normed_embedding", None)
     if emb is None:
         emb = face.embedding
@@ -21,38 +18,31 @@ def ensure_normed_embedding(face):
 
 
 def main():
-    # Carpeta raíz del proyecto (donde está este script)
     base_dir = Path(__file__).resolve().parent
-
-    # Carpeta con las fotos de entrenamiento
     known_faces_dir = base_dir / "known_faces"
 
     if not known_faces_dir.exists():
-        print(f"❌ Carpeta no encontrada: {known_faces_dir}")
-        print("Crea 'known_faces/<nombre_persona>/' con algunas fotos dentro.")
+        print(f"Directory not found: {known_faces_dir}")
+        print("Create 'known_faces/<person_name>/' and include training images.")
         return
 
-    # Inicializar InsightFace
-    print("🔧 Cargando modelo InsightFace (buffalo_s)...")
+    print("Loading InsightFace model (buffalo_s)...")
     app = FaceAnalysis(
         name="buffalo_s",
-        providers=["CPUExecutionProvider"],  # Solo CPU en la Raspberry
+        providers=["CPUExecutionProvider"],
     )
     app.prepare(ctx_id=0, det_size=(320, 320))
-    print("✅ Modelo cargado.")
+    print("Model loaded.")
 
-    embeddings = []
-    labels = []
+    embeddings, labels = [], []
 
-    # Recorrer subcarpetas: cada una es una persona
     for person_dir in sorted(known_faces_dir.iterdir()):
         if not person_dir.is_dir():
             continue
 
         person_name = person_dir.name
-        print(f"\n👤 Procesando persona: {person_name}")
+        print(f"Processing: {person_name}")
 
-        # Recorrer imágenes de esa persona
         for img_path in sorted(person_dir.iterdir()):
             if not img_path.is_file():
                 continue
@@ -60,52 +50,47 @@ def main():
             if img_path.suffix.lower() not in [".jpg", ".jpeg", ".png", ".bmp"]:
                 continue
 
-            print(f"  🖼️  Imagen: {img_path.name}")
+            print(f"  Image: {img_path.name}")
 
             img_bgr = cv2.imread(str(img_path))
             if img_bgr is None:
-                print("   ⚠️ No se pudo leer la imagen, la salto.")
+                print("  Could not read image. Skipping.")
                 continue
 
             img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-
-            # Detectar caras
             faces = app.get(img_rgb)
 
             if len(faces) == 0:
-                print("   ⚠️ No se detectó ninguna cara en esta imagen, la salto.")
+                print("  No face detected. Skipping.")
                 continue
 
-            # Para simplificar: nos quedamos con la cara con mayor puntuación
-            faces_sorted = sorted(faces, key=lambda f: f.det_score, reverse=True)
-            best_face = faces_sorted[0]
-
+            best_face = sorted(faces, key=lambda f: f.det_score, reverse=True)[0]
             emb = ensure_normed_embedding(best_face)
+
             if emb is None:
-                print("   ⚠️ No se pudo obtener embedding, salto esta imagen.")
+                print("  Could not extract embedding. Skipping.")
                 continue
 
             embeddings.append(emb)
             labels.append(person_name)
 
     if not embeddings:
-        print("\n❌ No se generó ningún embedding. Revisa tus imágenes.")
+        print("No embeddings generated. Check your dataset.")
         return
 
     embeddings = np.stack(embeddings, axis=0)
     labels = np.array(labels)
 
-    # Guardar en disco
     emb_path = base_dir / "face_embeddings.npy"
     labels_path = base_dir / "face_labels.npy"
 
     np.save(emb_path, embeddings)
     np.save(labels_path, labels)
 
-    print("\n✅ Base de datos creada correctamente:")
-    print(f"   → Embeddings: {emb_path}")
-    print(f"   → Labels:     {labels_path}")
-    print(f"   Número total de caras registradas: {embeddings.shape[0]}")
+    print("Database created:")
+    print(f"  Embeddings: {emb_path}")
+    print(f"  Labels:     {labels_path}")
+    print(f"  Total faces: {embeddings.shape[0]}")
 
 
 if __name__ == "__main__":

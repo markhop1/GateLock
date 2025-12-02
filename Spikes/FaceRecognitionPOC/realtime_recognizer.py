@@ -7,6 +7,7 @@ from insightface.app import FaceAnalysis
 
 
 def ensure_normed_embedding(face):
+    """Return an L2-normalized embedding."""
     emb = getattr(face, "normed_embedding", None)
     if emb is None:
         emb = face.embedding
@@ -17,23 +18,23 @@ def ensure_normed_embedding(face):
 
 
 def load_db(base_dir: Path):
+    """Load embeddings and labels from disk."""
     emb_path = base_dir / "face_embeddings.npy"
     labels_path = base_dir / "face_labels.npy"
 
     if not emb_path.exists() or not labels_path.exists():
-        print("❌ No se encontraron los archivos de base de datos:")
-        print(f"   {emb_path}")
-        print(f"   {labels_path}")
-        print("   Ejecuta primero: python build_db.py")
+        print("Database files not found:")
+        print(f"  {emb_path}")
+        print(f"  {labels_path}")
+        print("Run: python build_db.py")
         sys.exit(1)
 
     embeddings = np.load(emb_path)
     labels = np.load(labels_path)
 
     if embeddings.ndim != 2:
-        raise ValueError("Los embeddings deben tener forma (N, D).")
+        raise ValueError("Embeddings must have shape (N, D).")
 
-    # Asegurarnos de que están normalizados
     norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
     norms[norms == 0] = 1.0
     embeddings = embeddings / norms
@@ -42,59 +43,45 @@ def load_db(base_dir: Path):
 
 
 def recognize_face(face_emb, known_embeddings, known_labels, threshold=0.5):
-    """
-    face_emb: vector normalizado (D,)
-    known_embeddings: matriz (N, D)
-    Devuelve (nombre, similitud)
-    """
-    # Producto escalar = similitud de coseno (si están normalizados)
+    """Return the best matching label and similarity."""
     sims = known_embeddings @ face_emb
-    best_idx = int(np.argmax(sims))
-    best_sim = float(sims[best_idx])
-
-    if best_sim >= threshold:
-        return known_labels[best_idx], best_sim
-    else:
-        return "Desconocido", best_sim
+    idx = int(np.argmax(sims))
+    sim = float(sims[idx])
+    if sim >= threshold:
+        return known_labels[idx], sim
+    return "Unknown", sim
 
 
 def main():
     base_dir = Path(__file__).resolve().parent
 
-    # 1) Cargar base de datos
-    print("📂 Cargando base de datos de caras...")
+    print("Loading face database...")
     known_embeddings, known_labels = load_db(base_dir)
-    print(f"✅ Base cargada con {known_embeddings.shape[0]} embeddings.")
+    print(f"Loaded {known_embeddings.shape[0]} embeddings.")
 
-    # 2) Inicializar InsightFace
-    print("🔧 Cargando modelo InsightFace (buffalo_s)...")
+    print("Loading InsightFace model (buffalo_s)...")
     app = FaceAnalysis(
         name="buffalo_s",
         providers=["CPUExecutionProvider"],
     )
     app.prepare(ctx_id=0, det_size=(320, 320))
-    print("✅ Modelo cargado.")
+    print("Model loaded.")
 
-    # 3) Abrir cámara
-    print("📷 Abriendo cámara (VideoCapture 0)...")
+    print("Opening camera (index 0)...")
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        print("❌ No se pudo abrir la cámara. Revisa el índice (0, 1, ...) o permisos.")
+        print("Unable to access camera. Check device index or permissions.")
         sys.exit(1)
 
-    print("▶️ Reconocimiento facial en tiempo real iniciado.")
-    print("   Pulsa 'q' en la ventana para salir.")
+    print("Real-time face recognition started. Press 'q' to exit.")
 
     while True:
         ret, frame_bgr = cap.read()
         if not ret:
-            print("⚠️ No se pudo leer frame de la cámara.")
+            print("Unable to capture frame.")
             break
 
-        # InsightFace espera RGB
         frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-
-        # Detectar caras
         faces = app.get(frame_rgb)
 
         for face in faces:
@@ -102,7 +89,6 @@ def main():
             if emb is None:
                 continue
 
-            # Asegurarnos de que está normalizado
             emb = emb.astype(np.float32)
             norm = np.linalg.norm(emb)
             if norm > 0:
@@ -110,14 +96,11 @@ def main():
 
             name, sim = recognize_face(emb, known_embeddings, known_labels, threshold=0.5)
 
-            # Dibujar bbox y texto
             x1, y1, x2, y2 = face.bbox.astype(int)
             cv2.rectangle(frame_bgr, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
-            text = f"{name} ({sim:.2f})"
             cv2.putText(
                 frame_bgr,
-                text,
+                f"{name} ({sim:.2f})",
                 (x1, y1 - 10),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.6,
@@ -126,16 +109,15 @@ def main():
                 cv2.LINE_AA,
             )
 
-        cv2.imshow("Reconocimiento facial - q para salir", frame_bgr)
+        cv2.imshow("Real-time facial recognition (press q to exit)", frame_bgr)
 
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord("q"):
+        if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
     cap.release()
     cv2.destroyAllWindows()
-    print("👋 Programa terminado.")
-
+    print("Program terminated.")
+    
 
 if __name__ == "__main__":
     main()
