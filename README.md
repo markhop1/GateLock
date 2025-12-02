@@ -1,21 +1,23 @@
 # GateLock
 
-GateLock is an access‑control platform with integrated Face Recognition technology.  
+GateLock is an access-control platform with integrated Face Recognition technology.
 
-Its purpose is to serve as a security system capable of detect, recognize and allowing the access to a given room. 
+Its purpose is to serve as a security system capable of detecting, recognizing, and allowing access to a given room.
 
 ---
 
 ## Face Recognition Proof of Concept
 
-A working facial‑recognition prototype is available here:
+A working facial-recognition prototype is available here:
 
 **[Face Recognition POC](Spikes/FaceRecognitionPOC)**
+
 This POC demonstrates:
-- Real‑time face detection and recognition running on a Raspberry Pi 5  
+- Real-time face detection and recognition running on a Raspberry Pi 5  
 - InsightFace models handling detection, embedding generation, and recognition  
-- Database generation from user‑provided photos  
+- Database generation from user-provided photos  
 - Live camera-based identification  
+- Video-based recognition with parameterized performance options (frame skipping, resizing, and optional video output)
 
 It is meant as a reference and testing ground before integrating biometric authentication into the main GateLock system.
 

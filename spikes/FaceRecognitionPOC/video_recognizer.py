@@ -1,6 +1,7 @@
 # video_recognizer.py
-from pathlib import Path
 import sys
+from pathlib import Path
+import argparse
 
 import cv2
 import numpy as np
@@ -53,7 +54,14 @@ def recognize_face(face_emb, known_embeddings, known_labels, threshold=0.5):
     return "Unknown", sim
 
 
-def process_video(video_path: Path, output_path: Path | None = None, threshold: float = 0.5):
+def process_video(
+    video_path: Path,
+    output_path: Path | None = None,
+    display: bool = False,
+    skip_frames: int = 1,
+    resize_width: int = 0,
+    threshold: float = 0.5,
+):
     base_dir = Path(__file__).resolve().parent
 
     known_embeddings, known_labels = load_db(base_dir)
@@ -71,17 +79,13 @@ def process_video(video_path: Path, output_path: Path | None = None, threshold: 
         print(f"Unable to open video: {video_path}")
         sys.exit(1)
 
-    writer = None
-    if output_path is not None:
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        if fps <= 0:
-            fps = 25.0
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+    if skip_frames < 1:
+        skip_frames = 1
 
+    writer = None
     frame_index = 0
+    summary_counts: dict[str, int] = {}
+
     print("Starting video processing...")
 
     while True:
@@ -90,7 +94,27 @@ def process_video(video_path: Path, output_path: Path | None = None, threshold: 
             break
 
         frame_index += 1
-        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+
+        if frame_index % skip_frames != 0:
+            # Fast path: skip processing this frame
+            if display:
+                cv2.imshow("Video face recognition", frame_bgr)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+            if writer is not None:
+                writer.write(frame_bgr)
+            continue
+
+        processed_frame = frame_bgr
+
+        if resize_width > 0:
+            h, w = processed_frame.shape[:2]
+            if w != resize_width:
+                scale = resize_width / float(w)
+                new_h = int(h * scale)
+                processed_frame = cv2.resize(processed_frame, (resize_width, new_h))
+
+        frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
         faces = app.get(frame_rgb)
 
         for face in faces:
@@ -105,10 +129,12 @@ def process_video(video_path: Path, output_path: Path | None = None, threshold: 
 
             name, sim = recognize_face(emb, known_embeddings, known_labels, threshold=threshold)
 
+            summary_counts[name] = summary_counts.get(name, 0) + 1
+
             x1, y1, x2, y2 = face.bbox.astype(int)
-            cv2.rectangle(frame_bgr, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.rectangle(processed_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(
-                frame_bgr,
+                processed_frame,
                 f"{name} ({sim:.2f})",
                 (x1, max(0, y1 - 10)),
                 cv2.FONT_HERSHEY_SIMPLEX,
@@ -118,31 +144,94 @@ def process_video(video_path: Path, output_path: Path | None = None, threshold: 
                 cv2.LINE_AA,
             )
 
-        # Optional: show in a window while processing
-        cv2.imshow("Video face recognition (press q to stop)", frame_bgr)
-        if writer is not None:
-            writer.write(frame_bgr)
+        if display:
+            cv2.imshow("Video face recognition", processed_frame)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
 
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord("q"):
-            break
+        if output_path is not None:
+            if writer is None:
+                height, width = processed_frame.shape[:2]
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                if fps <= 0:
+                    fps = 25.0
+                fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+                writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+            writer.write(processed_frame)
 
     cap.release()
     if writer is not None:
         writer.release()
-    cv2.destroyAllWindows()
+    if display:
+        cv2.destroyAllWindows()
+
     print("Video processing finished.")
+
+    print()
+    if not summary_counts:
+        print("No faces recognized.")
+        return
+
+    known = {k: v for k, v in summary_counts.items() if k != "Unknown"}
+    unknown_count = summary_counts.get("Unknown", 0)
+
+    print("We found these persons:")
+    if known:
+        for name, count in sorted(known.items(), key=lambda x: -x[1]):
+            print(f"  {name}: {count} detections")
+    else:
+        print("  (no known persons)")
+
+    if unknown_count > 0:
+        print(f"  Unknown: {unknown_count} detections")
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Video face recognition with InsightFace.")
+    parser.add_argument("input_video", type=str, help="Path to input video.")
+    parser.add_argument(
+        "--output-video",
+        type=str,
+        default=None,
+        help="Path to save annotated video. If omitted, no video is written.",
+    )
+    parser.add_argument(
+        "--display",
+        action="store_true",
+        help="Display video while processing.",
+    )
+    parser.add_argument(
+        "--skip-frames",
+        type=int,
+        default=1,
+        help="Process every N-th frame (default: 1, no skipping).",
+    )
+    parser.add_argument(
+        "--resize-width",
+        type=int,
+        default=0,
+        help="Resize frames to this width while processing. 0 disables resizing.",
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.5,
+        help="Similarity threshold for recognition.",
+    )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python video_recognizer.py <input_video> [output_video]")
-        sys.exit(1)
+    args = parse_args()
 
-    input_video = Path(sys.argv[1])
-    if len(sys.argv) >= 3:
-        output_video = Path(sys.argv[2])
-    else:
-        output_video = None
+    input_video = Path(args.input_video)
+    output_video = Path(args.output_video) if args.output_video is not None else None
 
-    process_video(input_video, output_video, threshold=0.5)
+    process_video(
+        video_path=input_video,
+        output_path=output_video,
+        display=args.display,
+        skip_frames=args.skip_frames,
+        resize_width=args.resize_width,
+        threshold=args.threshold,
+    )
