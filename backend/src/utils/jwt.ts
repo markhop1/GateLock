@@ -4,11 +4,15 @@ export const generateToken = (userId: string): string => {
   const jwtSecret = process.env.JWT_SECRET
   const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '7d'
 
-  if (!jwtSecret) {
+  if (!jwtSecret || typeof jwtSecret !== 'string') {
     throw new Error('JWT_SECRET is not defined')
   }
 
-  return jwt.sign({ userId }, jwtSecret, {
-    expiresIn: jwtExpiresIn as string,
-  })
+  return jwt.sign(
+    { userId },
+    jwtSecret,
+    {
+      expiresIn: jwtExpiresIn as string | number,
+    }
+  )
 }
