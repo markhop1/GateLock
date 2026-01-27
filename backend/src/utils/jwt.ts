@@ -8,11 +8,11 @@ export const generateToken = (userId: string): string => {
     throw new Error('JWT_SECRET is not defined')
   }
 
-  return jwt.sign(
+  return (jwt.sign as any)(
     { userId },
     jwtSecret,
     {
-      expiresIn: jwtExpiresIn as string | number,
+      expiresIn: jwtExpiresIn,
     }
   )
 }
