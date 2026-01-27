@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { useNotificationStore } from '../store/notificationStore'
+import { useNotificationStore, NotificationStatus } from '../store/notificationStore'
 import NotificationCard from '../components/NotificationCard'
 import { BellIcon } from '@heroicons/react/24/outline'
 
@@ -75,11 +75,16 @@ export default function HomePage() {
     }
 
     return () => {
-      delete window.simulateNotification
+      if ('simulateNotification' in window) {
+        delete (window as { simulateNotification?: typeof simulateNotification }).simulateNotification
+      }
     }
   }, [addNotification])
 
-  const handleAction = async (id: string, action: 'accepted' | 'ignored') => {
+  const handleAction = async (id: string, action: NotificationStatus) => {
+    if (action !== 'accepted' && action !== 'ignored') {
+      return
+    }
     try {
       await updateNotificationStatus(id, action)
       // Refresh notifications after update

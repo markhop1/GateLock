@@ -1,11 +1,11 @@
-import { Notification, NotificationStatus } from '../store/notificationStore'
+import { Notification } from '../store/notificationStore'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale/es'
 import { CheckCircleIcon, XCircleIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline'
 
 interface NotificationCardProps {
   notification: Notification
-  onAction: (id: string, action: NotificationStatus) => void
+  onAction: (id: string, action: 'accepted' | 'ignored' | 'pending' | 'unanswered') => void
   showActions?: boolean
 }
 

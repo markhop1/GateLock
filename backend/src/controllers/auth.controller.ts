@@ -1,6 +1,7 @@
-import { Request, Response, NextFunction } from 'express'
+import { Response, NextFunction } from 'express'
 import { User } from '../models/User.model.js'
 import { generateToken } from '../utils/jwt.js'
+import { AuthRequest } from '../middleware/auth.middleware.js'
 
 export const register = async (
   req: Request,
@@ -73,7 +74,7 @@ export const register = async (
     }
     
     // Handle duplicate key error (email already exists)
-    if (error.code === 11000) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
       res.status(400).json({ error: 'A user with this email already exists' })
       return
     }

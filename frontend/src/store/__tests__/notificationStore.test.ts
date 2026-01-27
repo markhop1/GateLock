@@ -42,6 +42,7 @@ describe('Notification Store', () => {
         personName: 'Test Person',
         videoUrl: 'https://example.com/video.mp4',
         message: 'Test message',
+        status: 'pending',
       })
 
       const state = useNotificationStore.getState()

@@ -28,7 +28,7 @@ export const createAlert = async (
     if (personId && mongoose.Types.ObjectId.isValid(personId)) {
       const existingPerson = await Person.findOne({
         _id: personId,
-        userId,
+        userId: new mongoose.Types.ObjectId(userId),
       })
 
       if (existingPerson) {
@@ -37,7 +37,7 @@ export const createAlert = async (
         // Person doesn't exist, create a new one
         const newPerson = new Person({
           name: personName,
-          userId,
+          userId: new mongoose.Types.ObjectId(userId),
         })
         await newPerson.save()
         finalPersonId = newPerson._id
@@ -46,14 +46,14 @@ export const createAlert = async (
       // personId is not valid or not provided, create or find person by name
       let person = await Person.findOne({
         name: personName.trim(),
-        userId,
+        userId: new mongoose.Types.ObjectId(userId),
       })
 
       if (!person) {
         // Create new person
         person = new Person({
           name: personName.trim(),
-          userId,
+          userId: new mongoose.Types.ObjectId(userId),
         })
         await person.save()
       }
@@ -66,7 +66,7 @@ export const createAlert = async (
       personName: personName.trim(),
       videoUrl,
       message,
-      userId,
+      userId: new mongoose.Types.ObjectId(userId),
       timestamp: new Date(),
       status: 'pending',
     })
@@ -106,7 +106,7 @@ export const getAlerts = async (
       status?: AlertStatus
     }
 
-    const query: AlertQuery = { userId }
+    const query: AlertQuery = { userId: new mongoose.Types.ObjectId(userId) }
     if (status) {
       query.status = status as AlertStatus
     }
@@ -223,7 +223,7 @@ const checkExpiredAlerts = async (userId: string): Promise<void> => {
 
   await Alert.updateMany(
     {
-      userId,
+      userId: new mongoose.Types.ObjectId(userId),
       status: 'pending',
       timestamp: { $lt: expiredThreshold },
     },
