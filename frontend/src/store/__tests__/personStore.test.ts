@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { usePersonStore } from '../personStore'
-import { personService } from '../../services/person.service'
+import { personService, Person } from '../../services/person.service'
 
 // Mock person service
 vi.mock('../../services/person.service', () => ({
@@ -123,7 +123,7 @@ describe('Person Store', () => {
         },
       ]
 
-      vi.mocked(personService.getAll).mockResolvedValue(mockPersons as any)
+      vi.mocked(personService.getAll).mockResolvedValue(mockPersons as Person[])
 
       await usePersonStore.getState().fetchPersons()
 

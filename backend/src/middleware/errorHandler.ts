@@ -4,13 +4,14 @@ import mongoose from 'mongoose'
 export interface AppError extends Error {
   statusCode?: number
   code?: number
+  keyPattern?: Record<string, unknown>
 }
 
 export const errorHandler = (
   err: AppError,
-  req: Request,
+  _req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
   let statusCode = err.statusCode || 500
   let message = err.message || 'Internal Server Error'
@@ -23,9 +24,9 @@ export const errorHandler = (
   }
 
   // Mongoose duplicate key error
-  if (err.code === 11000) {
+  if (err.code === 11000 && err.keyPattern) {
     statusCode = 400
-    const field = Object.keys((err as any).keyPattern)[0]
+    const field = Object.keys(err.keyPattern)[0]
     message = `${field} already exists`
   }
 

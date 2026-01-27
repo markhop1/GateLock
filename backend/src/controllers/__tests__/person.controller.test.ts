@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { Request, Response } from 'express'
+import { Response } from 'express'
 import { createPerson } from '../person.controller.js'
+import { AuthRequest } from '../../middleware/auth.middleware.js'
 
 // Mock Person model to prevent actual database calls
 vi.mock('../../models/Person.model.js', () => ({
@@ -14,7 +15,7 @@ vi.mock('../../models/Person.model.js', () => ({
 }))
 
 describe('Person Controller - Validation', () => {
-  let mockReq: Partial<Request>
+  let mockReq: Partial<AuthRequest>
   let mockRes: Partial<Response>
   let mockNext: ReturnType<typeof vi.fn>
 
@@ -36,7 +37,7 @@ describe('Person Controller - Validation', () => {
     it('should return 400 if name is missing', async () => {
       mockReq.body = { email: 'test@example.com' }
 
-      await createPerson(mockReq as any, mockRes as Response, mockNext)
+      await createPerson(mockReq as AuthRequest, mockRes as Response, mockNext)
 
       expect(mockRes.status).toHaveBeenCalledWith(400)
       expect(mockRes.json).toHaveBeenCalledWith({

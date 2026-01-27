@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { usePersonStore } from '../store/personStore'
 import { useNotificationStore } from '../store/notificationStore'
+import { getErrorMessage } from '../types/error'
 import {
   UserPlusIcon,
   CheckCircleIcon,
@@ -54,8 +55,8 @@ export default function AddPersonPage() {
       setShowAddForm(false)
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
-    } catch (err: any) {
-      setFormError(err.response?.data?.error || 'Error al añadir la persona')
+    } catch (err: unknown) {
+      setFormError(getErrorMessage(err) || 'Error al añadir la persona')
     }
   }
 
@@ -88,8 +89,8 @@ export default function AddPersonPage() {
       // Refresh notifications to update names in history
       await fetchNotifications()
       setTimeout(() => setSuccess(false), 2000)
-    } catch (err: any) {
-      setFormError(err.response?.data?.error || 'Error al actualizar la persona')
+    } catch (err: unknown) {
+      setFormError(getErrorMessage(err) || 'Error al actualizar la persona')
     }
   }
 
@@ -99,8 +100,8 @@ export default function AddPersonPage() {
       setDeleteConfirmId(null)
       setSuccess(true)
       setTimeout(() => setSuccess(false), 2000)
-    } catch (err: any) {
-      setFormError(err.response?.data?.error || 'Error al eliminar la persona')
+    } catch (err: unknown) {
+      setFormError(getErrorMessage(err) || 'Error al eliminar la persona')
       setDeleteConfirmId(null)
     }
   }

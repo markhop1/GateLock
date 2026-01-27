@@ -54,7 +54,7 @@ export const useAuthStore = create<AuthState>()(
             user: response.user,
             isAuthenticated: true,
           })
-        } catch (error) {
+        } catch {
           set({
             user: null,
             token: null,

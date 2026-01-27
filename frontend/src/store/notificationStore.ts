@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { alertService, Alert } from '../services/alert.service'
+import { getErrorMessage } from '../types/error'
 
 export type NotificationStatus = 'pending' | 'accepted' | 'ignored' | 'unanswered'
 
@@ -53,8 +54,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         notifications: [newNotification, ...state.notifications],
         loading: false,
       }))
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.message || 'Error creating notification'
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error) || 'Error creating notification'
       console.error('Error creating notification:', error)
       set({
         error: errorMessage,
@@ -83,9 +84,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           ),
         }))
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.error || 'Error updating notification',
+        error: getErrorMessage(error) || 'Error updating notification',
       })
       throw error
     }
@@ -99,9 +100,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const alerts = await alertService.getAll(status)
       const notifications = alerts.map(alertToNotification)
       set({ notifications, loading: false })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.error || 'Error fetching notifications',
+        error: getErrorMessage(error) || 'Error fetching notifications',
         loading: false,
       })
     }

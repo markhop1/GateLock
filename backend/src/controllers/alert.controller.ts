@@ -1,6 +1,6 @@
 import { Response, NextFunction } from 'express'
 import mongoose from 'mongoose'
-import { Alert } from '../models/Alert.model.js'
+import { Alert, AlertStatus } from '../models/Alert.model.js'
 import { Person } from '../models/Person.model.js'
 import { AuthRequest } from '../middleware/auth.middleware.js'
 
@@ -101,9 +101,14 @@ export const getAlerts = async (
     // Check and update expired alerts
     await checkExpiredAlerts(userId)
 
-    const query: any = { userId }
+    interface AlertQuery {
+      userId: mongoose.Types.ObjectId
+      status?: AlertStatus
+    }
+
+    const query: AlertQuery = { userId }
     if (status) {
-      query.status = status
+      query.status = status as AlertStatus
     }
 
     const alerts = await Alert.find(query)
@@ -111,7 +116,7 @@ export const getAlerts = async (
       .lean()
 
     res.json({
-      alerts: alerts.map((alert: any) => ({
+      alerts: alerts.map((alert) => ({
         id: alert._id.toString(),
         personId: alert.personId.toString(),
         personName: alert.personName,

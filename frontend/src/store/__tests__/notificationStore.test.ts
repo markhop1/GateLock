@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useNotificationStore } from '../notificationStore'
-import { alertService } from '../../services/alert.service'
+import { alertService, Alert } from '../../services/alert.service'
 
 // Mock alert service
 vi.mock('../../services/alert.service', () => ({
@@ -111,7 +111,7 @@ describe('Notification Store', () => {
         },
       ]
 
-      vi.mocked(alertService.getAll).mockResolvedValue(mockAlerts as any)
+      vi.mocked(alertService.getAll).mockResolvedValue(mockAlerts as Alert[])
 
       await useNotificationStore.getState().fetchNotifications()
 

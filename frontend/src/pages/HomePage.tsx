@@ -13,7 +13,6 @@ declare global {
 export default function HomePage() {
   const {
     notifications,
-    loading,
     addNotification,
     updateNotificationStatus,
     checkExpiredNotifications,

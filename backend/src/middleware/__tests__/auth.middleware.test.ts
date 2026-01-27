@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { Request, Response } from 'express'
+import { Response } from 'express'
 import { authenticate, AuthRequest } from '../auth.middleware.js'
 import jwt from 'jsonwebtoken'
-import { User } from '../../models/User.model.js'
 
 // Mock dependencies
 vi.mock('jsonwebtoken')

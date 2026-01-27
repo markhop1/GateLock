@@ -20,13 +20,13 @@ describe('Error Handler', () => {
 
   it('should handle mongoose validation errors', () => {
     const validationError = new mongoose.Error.ValidationError()
+    const emailError = new mongoose.Error.ValidatorError({
+      message: 'Email is required',
+      path: 'email',
+      value: undefined,
+    })
     validationError.errors = {
-      email: {
-        message: 'Email is required',
-        name: 'ValidatorError',
-        path: 'email',
-        value: undefined,
-      } as any,
+      email: emailError,
     }
 
     errorHandler(validationError as AppError, mockReq as Request, mockRes as Response, mockNext)
@@ -45,7 +45,7 @@ describe('Error Handler', () => {
       keyPattern: {
         email: 1,
       },
-    } as any
+    }
 
     errorHandler(duplicateError, mockReq as Request, mockRes as Response, mockNext)
 

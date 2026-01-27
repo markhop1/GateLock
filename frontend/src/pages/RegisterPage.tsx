@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { getErrorMessage } from '../types/error'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
@@ -31,8 +32,8 @@ export default function RegisterPage() {
     try {
       await register(email, password, name)
       navigate('/')
-    } catch (err: any) {
-      const errorMessage = err?.response?.data?.error || err?.message || 'Error al registrarse. Por favor, intenta de nuevo.'
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err) || 'Error al registrarse. Por favor, intenta de nuevo.'
       setError(errorMessage)
       console.error('Registration error:', err)
     } finally {

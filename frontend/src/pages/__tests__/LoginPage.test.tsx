@@ -23,7 +23,7 @@ describe('LoginPage', () => {
   const mockLogin = vi.fn()
 
   beforeEach(() => {
-    vi.mocked(useAuthStore).mockImplementation((selector: any) => {
+    vi.mocked(useAuthStore).mockImplementation((selector?: (state: ReturnType<typeof useAuthStore>) => unknown) => {
       const state = {
         login: mockLogin,
         isAuthenticated: false,

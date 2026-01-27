@@ -6,7 +6,7 @@ import { es } from 'date-fns/locale/es'
 import { ClockIcon, CheckCircleIcon, XCircleIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline'
 
 export default function HistoryPage() {
-  const { notifications, loading, fetchNotifications } = useNotificationStore()
+  const { notifications, fetchNotifications } = useNotificationStore()
 
   useEffect(() => {
     fetchNotifications()

@@ -18,7 +18,7 @@ api.interceptors.request.use((config) => {
       if (authData.state?.token) {
         config.headers.Authorization = `Bearer ${authData.state.token}`
       }
-    } catch (e) {
+    } catch {
       // Ignore parsing errors
     }
   }

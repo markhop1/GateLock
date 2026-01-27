@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { getErrorMessage } from '../types/error'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -18,8 +19,8 @@ export default function LoginPage() {
     try {
       await login(email, password)
       navigate('/')
-    } catch (err: any) {
-      const errorMessage = err?.response?.data?.error || err?.message || 'Error al iniciar sesión. Por favor, intenta de nuevo.'
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err) || 'Error al iniciar sesión. Por favor, intenta de nuevo.'
       setError(errorMessage)
       console.error('Login error:', err)
     } finally {

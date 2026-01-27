@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { personService, Person as PersonData, CreatePersonData } from '../services/person.service'
+import { getErrorMessage } from '../types/error'
 
 export interface Person {
   id: string
@@ -40,9 +41,9 @@ export const usePersonStore = create<PersonState>((set, get) => ({
         persons: [...state.persons, newPerson],
         loading: false,
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.error || 'Error adding person',
+        error: getErrorMessage(error) || 'Error adding person',
         loading: false,
       })
       throw error
@@ -60,9 +61,9 @@ export const usePersonStore = create<PersonState>((set, get) => ({
       const personsData = await personService.getAll()
       const persons = personsData.map(personDataToPerson)
       set({ persons, loading: false })
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.error || 'Error fetching persons',
+        error: getErrorMessage(error) || 'Error fetching persons',
         loading: false,
       })
     }
@@ -76,9 +77,9 @@ export const usePersonStore = create<PersonState>((set, get) => ({
         persons: state.persons.map((p) => (p.id === id ? updatedPerson : p)),
         loading: false,
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.error || 'Error updating person',
+        error: getErrorMessage(error) || 'Error updating person',
         loading: false,
       })
       throw error
@@ -92,9 +93,9 @@ export const usePersonStore = create<PersonState>((set, get) => ({
         persons: state.persons.filter((p) => p.id !== id),
         loading: false,
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.response?.data?.error || 'Error deleting person',
+        error: getErrorMessage(error) || 'Error deleting person',
         loading: false,
       })
       throw error

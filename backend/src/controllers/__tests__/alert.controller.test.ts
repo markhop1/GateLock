@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { Request, Response } from 'express'
+import { Response } from 'express'
 import { createAlert, updateAlertStatus } from '../alert.controller.js'
+import { AuthRequest } from '../../middleware/auth.middleware.js'
 
 // Mock models to prevent actual database calls
 vi.mock('../../models/Person.model.js', () => ({
@@ -16,7 +17,7 @@ vi.mock('../../models/Alert.model.js', () => ({
 }))
 
 describe('Alert Controller - Validation', () => {
-  let mockReq: Partial<Request>
+  let mockReq: Partial<AuthRequest>
   let mockRes: Partial<Response>
   let mockNext: ReturnType<typeof vi.fn>
 
@@ -41,7 +42,7 @@ describe('Alert Controller - Validation', () => {
         message: 'Test message',
       }
 
-      await createAlert(mockReq as any, mockRes as Response, mockNext)
+      await createAlert(mockReq as AuthRequest, mockRes as Response, mockNext)
 
       expect(mockRes.status).toHaveBeenCalledWith(400)
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -56,7 +57,7 @@ describe('Alert Controller - Validation', () => {
         message: 'Test message',
       }
 
-      await createAlert(mockReq as any, mockRes as Response, mockNext)
+      await createAlert(mockReq as AuthRequest, mockRes as Response, mockNext)
 
       expect(mockRes.status).toHaveBeenCalledWith(400)
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -71,7 +72,7 @@ describe('Alert Controller - Validation', () => {
         videoUrl: 'https://example.com/video.mp4',
       }
 
-      await createAlert(mockReq as any, mockRes as Response, mockNext)
+      await createAlert(mockReq as AuthRequest, mockRes as Response, mockNext)
 
       expect(mockRes.status).toHaveBeenCalledWith(400)
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -86,7 +87,7 @@ describe('Alert Controller - Validation', () => {
       mockReq.params = { id: 'alert-id' }
       mockReq.body = { status: 'invalid-status' }
 
-      await updateAlertStatus(mockReq as any, mockRes as Response, mockNext)
+      await updateAlertStatus(mockReq as AuthRequest, mockRes as Response, mockNext)
 
       expect(mockRes.status).toHaveBeenCalledWith(400)
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -99,7 +100,7 @@ describe('Alert Controller - Validation', () => {
       mockReq.params = { id: 'alert-id' }
       mockReq.body = {}
 
-      await updateAlertStatus(mockReq as any, mockRes as Response, mockNext)
+      await updateAlertStatus(mockReq as AuthRequest, mockRes as Response, mockNext)
 
       expect(mockRes.status).toHaveBeenCalledWith(400)
       expect(mockRes.json).toHaveBeenCalledWith({

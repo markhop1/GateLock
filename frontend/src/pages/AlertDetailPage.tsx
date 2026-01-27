@@ -14,7 +14,7 @@ export default function AlertDetailPage() {
   useEffect(() => {
     // Fetch notification if not in store
     if (id && !notification) {
-      alertService.getById(id).then((alert) => {
+      alertService.getById(id).then(() => {
         fetchNotifications()
       })
     }

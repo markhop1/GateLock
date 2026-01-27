@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { getErrorMessage } from '../types/error'
 
 /**
  * Hook to enable quick login with Ctrl+Shift+K shortcut
@@ -37,7 +38,7 @@ export function useQuickLogin() {
           await login(testEmail, testPassword)
           navigate('/')
           console.log('Quick login successful!')
-        } catch (error) {
+        } catch {
           console.log('Test user not found, attempting to create...')
           // Try to create the test user if it doesn't exist
           try {
@@ -45,9 +46,9 @@ export function useQuickLogin() {
             await login(testEmail, testPassword)
             navigate('/')
             console.log('Test user created and logged in!')
-          } catch (registerError: any) {
+          } catch (registerError: unknown) {
             console.error('Failed to create test user:', registerError)
-            const errorMsg = registerError?.response?.data?.error || registerError?.message || 'Unknown error'
+            const errorMsg = getErrorMessage(registerError)
             alert(`Quick login failed: ${errorMsg}\n\nPlease register manually or check the console.`)
           }
         }

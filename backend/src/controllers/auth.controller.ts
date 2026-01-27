@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { User } from '../models/User.model.js'
 import { generateToken } from '../utils/jwt.js'
-import { AppError } from '../middleware/errorHandler.js'
 
 export const register = async (
   req: Request,
@@ -64,10 +63,11 @@ export const register = async (
         name: user.name,
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle mongoose validation errors
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map((err: any) => err.message)
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'ValidationError' && 'errors' in error) {
+      const validationError = error as { errors: Record<string, { message: string }> }
+      const messages = Object.values(validationError.errors).map((err) => err.message)
       res.status(400).json({ error: messages.join(', ') })
       return
     }
@@ -130,7 +130,7 @@ export const login = async (
 }
 
 export const getMe = async (
-  req: any,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
