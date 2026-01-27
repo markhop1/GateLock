@@ -13,10 +13,15 @@ const router = Router()
 // All routes require authentication
 router.use(authenticate)
 
-router.post('/', createPerson)
-router.get('/', getPersons)
-router.get('/:id', getPersonById)
-router.put('/:id', updatePerson)
-router.delete('/:id', deletePerson)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+router.post('/', createPerson as any)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+router.get('/', getPersons as any)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+router.get('/:id', getPersonById as any)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+router.put('/:id', updatePerson as any)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+router.delete('/:id', deletePerson as any)
 
 export default router

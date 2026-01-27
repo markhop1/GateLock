@@ -1,10 +1,16 @@
-import { Response, NextFunction } from 'express'
+import { Request, Response, NextFunction } from 'express'
 import { User } from '../models/User.model.js'
 import { generateToken } from '../utils/jwt.js'
 import { AuthRequest } from '../middleware/auth.middleware.js'
 
+interface RegisterBody {
+  email: string
+  password: string
+  name: string
+}
+
 export const register = async (
-  req: Request,
+  req: Request<unknown, unknown, RegisterBody>,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -84,8 +90,13 @@ export const register = async (
   }
 }
 
+interface LoginBody {
+  email: string
+  password: string
+}
+
 export const login = async (
-  req: Request,
+  req: Request<unknown, unknown, LoginBody>,
   res: Response,
   next: NextFunction
 ): Promise<void> => {

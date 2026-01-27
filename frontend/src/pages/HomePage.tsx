@@ -51,7 +51,7 @@ export default function HomePage() {
 
   useEffect(() => {
     // Exponer función global para simular notificaciones
-    window.simulateNotification = (personName?: string) => {
+    const simulateNotificationFn = (personName?: string) => {
       const names = [
         'Juan Pérez',
         'María García',
@@ -74,9 +74,11 @@ export default function HomePage() {
       })
     }
 
+    window.simulateNotification = simulateNotificationFn
+
     return () => {
       if ('simulateNotification' in window) {
-        delete (window as { simulateNotification?: typeof simulateNotification }).simulateNotification
+        delete (window as { simulateNotification?: typeof simulateNotificationFn }).simulateNotification
       }
     }
   }, [addNotification])

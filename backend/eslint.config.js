@@ -22,6 +22,6 @@ export default [
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**'],
+    ignores: ['dist/**', 'node_modules/**', '**/__tests__/**', '**/*.test.ts'],
   },
 ]

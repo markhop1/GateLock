@@ -23,7 +23,7 @@ describe('RegisterPage', () => {
   const mockRegister = vi.fn()
 
   beforeEach(() => {
-    vi.mocked(useAuthStore).mockImplementation((selector?: (state: unknown) => unknown) => {
+    vi.mocked(useAuthStore).mockImplementation((selector?: (state: any) => any) => {
       const state = {
         register: mockRegister,
         isAuthenticated: false,
@@ -33,7 +33,7 @@ describe('RegisterPage', () => {
         logout: vi.fn(),
         checkAuth: vi.fn(),
       }
-      return selector ? selector(state as ReturnType<typeof useAuthStore>) : state
+      return selector ? selector(state) : state
     })
     vi.clearAllMocks()
     mockNavigate.mockClear()
