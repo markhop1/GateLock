@@ -1,10 +1,12 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import path from 'path'
 import { connectDB } from './config/database.js'
 import authRoutes from './routes/auth.routes.js'
 import personRoutes from './routes/person.routes.js'
 import alertRoutes from './routes/alert.routes.js'
+import videoRoutes from './routes/video.routes.js'
 import { errorHandler } from './middleware/errorHandler.js'
 
 // Load environment variables
@@ -54,6 +56,11 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes)
 app.use('/api/persons', personRoutes)
 app.use('/api/alerts', alertRoutes)
+app.use('/api/videos', videoRoutes)
+
+// Serve uploaded videos statically
+const uploadsDir = path.join(process.cwd(), 'uploads', 'videos')
+app.use('/uploads/videos', express.static(uploadsDir))
 
 // Error handling middleware (must be last)
 app.use(errorHandler)

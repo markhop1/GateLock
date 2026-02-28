@@ -1,6 +1,21 @@
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+// Origen del backend para URLs estáticas (videos, etc.). La API está en /api, los uploads en /uploads.
+const API_ORIGIN = API_URL.replace(/\/api\/?$/, '')
+
+/**
+ * Convierte una URL relativa del backend (ej: /uploads/videos/xxx.mp4) a URL absoluta.
+ * Necesario porque el frontend puede estar en otro puerto/origen.
+ */
+export function getBackendAssetUrl(relativePath: string): string {
+  if (!relativePath) return ''
+  if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
+    return relativePath
+  }
+  const path = relativePath.startsWith('/') ? relativePath : `/${relativePath}`
+  return `${API_ORIGIN}${path}`
+}
 
 const api = axios.create({
   baseURL: API_URL,

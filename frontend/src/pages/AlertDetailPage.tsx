@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale/es'
 import { ArrowLeftIcon, CheckCircleIcon, XCircleIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline'
 import { alertService } from '../services/alert.service'
+import { getBackendAssetUrl } from '../services/api'
 
 export default function AlertDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -100,13 +101,14 @@ export default function AlertDetailPage() {
 
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Video de la solicitud
+            Video de la solicitud — {notification.personName}
           </h2>
           <video
-            src={notification.videoUrl}
+            src={getBackendAssetUrl(notification.videoUrl)}
             controls
             className="w-full rounded-md bg-gray-100 dark:bg-gray-700"
             style={{ maxHeight: '500px' }}
+            title={`Clip de ${notification.personName}`}
           >
             Tu navegador no soporta la reproducción de video.
           </video>

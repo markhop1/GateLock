@@ -1,0 +1,60 @@
+name: Raspberry Pi Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'raspberry-pi/**'
+      - '.github/workflows/raspberry-pi-tests.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'raspberry-pi/**'
+      - '.github/workflows/raspberry-pi-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      matrix:
+        python-version: ['3.11']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-opencv
+
+      - name: Install Python dependencies
+        working-directory: ./raspberry-pi
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run unit tests
+        working-directory: ./raspberry-pi
+        run: |
+          pytest tests/unit/ -v --tb=short
+
+      - name: Check imports and basic structure
+        working-directory: ./raspberry-pi
+        run: |
+          python -c "import config; import database.face_db; import detection.face_detector; import recognition.face_recognizer; import video.video_recorder; import api.auth; import api.client; print('✓ All imports successful')"
+
+      - name: Run syntax check
+        working-directory: ./raspberry-pi
+        run: |
+          python -m py_compile config/*.py database/*.py detection/*.py recognition/*.py video/*.py api/*.py main.py 2>&1 || exit 1
+          echo "✓ Syntax check passed"

@@ -2,6 +2,7 @@ import { Notification } from '../store/notificationStore'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale/es'
 import { CheckCircleIcon, XCircleIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline'
+import { getBackendAssetUrl } from '../services/api'
 
 interface NotificationCardProps {
   notification: Notification
@@ -64,11 +65,15 @@ export default function NotificationCard({
       </div>
 
       <div className="mb-4">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+          Clip: {notification.personName}
+        </p>
         <video
-          src={notification.videoUrl}
+          src={getBackendAssetUrl(notification.videoUrl)}
           controls
           className="w-full rounded-md bg-gray-100 dark:bg-gray-700"
           style={{ maxHeight: '300px' }}
+          title={`Video de ${notification.personName}`}
         >
           Tu navegador no soporta la reproducción de video.
         </video>

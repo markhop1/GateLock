@@ -1,0 +1,20 @@
+# Detección facial - RetinaFace (vía InsightFace)
+insightface>=0.7.3
+onnxruntime>=1.16.0
+
+# Reconocimiento facial - MobileFaceNet (TensorFlow/Keras)
+tensorflow>=2.13.0
+
+# Procesamiento de imágenes y video
+opencv-python>=4.8.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# Augmentación de imágenes
+albumentations>=1.3.0
+
+# Utilidades
+scikit-learn>=1.3.0  # Para cosine_similarity
+requests>=2.31.0
+python-dotenv>=1.0.0
+tqdm>=4.66.0  # Barras de progreso

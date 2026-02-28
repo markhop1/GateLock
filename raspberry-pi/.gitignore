@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Base de datos
+database/*.npy
+database/*.npz
+
+# Videos
+videos/
+*.mp4
+*.avi
+*.mov
+
+# Logs
+logs/
+*.log
+
+# Configuración local
+.env
+.env.local
+
+# Cache de tokens
+~/.gatelock/
+
+# Modelos descargados
+models/
+*.onnx
+*.h5
+*.pb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
