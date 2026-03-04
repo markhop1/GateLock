@@ -28,9 +28,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
   ]
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-primary-50 to-primary-100/50 dark:from-gray-900 dark:to-primary-950/30">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 md:left-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+      <aside className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 md:left-0 bg-white/90 dark:bg-gray-800/95 backdrop-blur border-r border-primary-200 dark:border-gray-700">
         <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
           <div className="flex items-center flex-shrink-0 px-4 mb-8">
             <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400">
@@ -68,7 +68,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </main>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-50">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-800/95 backdrop-blur border-t border-primary-200 dark:border-gray-700 md:hidden z-50">
         <div className="flex justify-around items-center h-16">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path
