@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken'
+import jwt, { type SignOptions } from 'jsonwebtoken'
 
 export const generateToken = (userId: string): string => {
   const jwtSecret = process.env.JWT_SECRET
@@ -8,11 +8,9 @@ export const generateToken = (userId: string): string => {
     throw new Error('JWT_SECRET is not defined')
   }
 
-  return (jwt.sign as any)(
+  return jwt.sign(
     { userId },
     jwtSecret,
-    {
-      expiresIn: jwtExpiresIn,
-    }
+    { expiresIn: jwtExpiresIn } as SignOptions
   )
 }

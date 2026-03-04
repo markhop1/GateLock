@@ -12,7 +12,7 @@ const upload = multer({
   limits: {
     fileSize: 100 * 1024 * 1024, // 100 MB
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     // Validar tipo de archivo
     const allowedMimeTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo']
     if (allowedMimeTypes.includes(file.mimetype)) {
