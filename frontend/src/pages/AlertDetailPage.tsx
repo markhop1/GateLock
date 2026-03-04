@@ -99,20 +99,22 @@ export default function AlertDetailPage() {
           </p>
         </div>
 
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Video de la solicitud — {notification.personName}
-          </h2>
-          <video
-            src={getBackendAssetUrl(notification.videoUrl)}
-            controls
-            className="w-full rounded-md bg-gray-100 dark:bg-gray-700"
-            style={{ maxHeight: '500px' }}
-            title={`Clip de ${notification.personName}`}
-          >
-            Tu navegador no soporta la reproducción de video.
-          </video>
-        </div>
+        {notification.videoUrl && (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Video de la solicitud — {notification.personName}
+            </h2>
+            <video
+              src={getBackendAssetUrl(notification.videoUrl)}
+              controls
+              className="w-full rounded-md bg-gray-100 dark:bg-gray-700"
+              style={{ maxHeight: '500px' }}
+              title={`Clip de ${notification.personName}`}
+            >
+              Tu navegador no soporta la reproducción de video.
+            </video>
+          </div>
+        )}
 
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">

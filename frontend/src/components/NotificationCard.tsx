@@ -64,20 +64,22 @@ export default function NotificationCard({
         )}
       </div>
 
-      <div className="mb-4">
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-          Clip: {notification.personName}
-        </p>
-        <video
-          src={getBackendAssetUrl(notification.videoUrl)}
-          controls
-          className="w-full rounded-md bg-gray-100 dark:bg-gray-700"
-          style={{ maxHeight: '300px' }}
-          title={`Video de ${notification.personName}`}
-        >
-          Tu navegador no soporta la reproducción de video.
-        </video>
-      </div>
+      {notification.videoUrl && (
+        <div className="mb-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+            Clip: {notification.personName}
+          </p>
+          <video
+            src={getBackendAssetUrl(notification.videoUrl)}
+            controls
+            className="w-full rounded-md bg-gray-100 dark:bg-gray-700"
+            style={{ maxHeight: '300px' }}
+            title={`Video de ${notification.personName}`}
+          >
+            Tu navegador no soporta la reproducción de video.
+          </video>
+        </div>
+      )}
 
       <p className="text-gray-700 dark:text-gray-300 mb-4">{notification.message}</p>
 

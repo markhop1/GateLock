@@ -18,12 +18,17 @@ from config import (
     CAMERA_INDEX, RECOGNITION_THRESHOLD, API_BASE_URL, API_USERNAME, API_PASSWORD,
     ALERT_COOLDOWN_SECONDS, LOG_LEVEL, LOG_FILE
 )
+
+AUTH_RETRY_INTERVAL = 60  # Segundos entre reintentos de autenticación cuando backend no disponible
 from detection.face_detector import RetinaFaceDetector, FaceDetection
 from recognition.face_recognizer import MobileFaceNetRecognizer
 from database.face_db import FaceDatabase
 from video.video_recorder import VideoClipRecorder
+from camera.capture_thread import CameraCaptureThread
 from api.auth import APIAuth
 from api.client import GateLockAPI
+
+from config import VIDEO_FPS
 
 # Configurar logging
 logging.basicConfig(
@@ -62,6 +67,7 @@ class FaceRecognitionSystem:
         
         # Estado
         self.camera: Optional[cv2.VideoCapture] = None
+        self.capture_thread: Optional[CameraCaptureThread] = None
         self.running = False
         self.last_alert_time: Dict[str, datetime] = {}  # person_name -> timestamp
         self.last_alert_any_time: Optional[datetime] = None  # Cooldown global (cualquier persona)
@@ -159,7 +165,18 @@ class FaceRecognitionSystem:
                 return False
         
         return True
-    
+
+    def _ensure_authenticated(self) -> bool:
+        """Reintenta login si no está autenticado. Retorna True si hay token válido."""
+        if self.auth.is_authenticated():
+            return True
+        if API_USERNAME and API_PASSWORD:
+            logger.info("Reintentando autenticación con backend...")
+            if self.auth.login(API_USERNAME, API_PASSWORD):
+                logger.info("Reconexión exitosa con backend")
+                return True
+        return False
+
     def _process_detection(self, detection: FaceDetection, frame: np.ndarray) -> Optional[str]:
         """
         Procesa una detección de rostro: reconoce y envía alerta si es necesario.
@@ -185,21 +202,8 @@ class FaceRecognitionSystem:
                 logger.info(f"Persona reconocida: {person_name} (similitud: {similarity:.3f})")
                 self.last_recognized_in_session = person_name
                 self.last_similarity = similarity
-                
-                # Verificar cooldown
-                if not self._check_cooldown(person_name):
-                    logger.debug(f"Alerta para {person_name} en cooldown")
-                    return person_name
-                
-                # Enviar alerta (guarda clip y sube)
-                self._send_alert(person_name, similarity)
-                
-                # Actualizar tiempos de última alerta (global y por persona)
-                now = datetime.now()
-                self.last_alert_time[person_name] = now
-                self.last_alert_any_time = now
-                self.last_recognized_in_session = None  # Sesión completada
-                
+                # NO enviar alerta aquí: se difiere hasta que el clip termine (300 frames o 2s sin rostros).
+                # Enviar antes cortaba la grabación en 1-2 segundos y producía clips demasiado cortos.
                 return person_name
             
             return None
@@ -223,6 +227,10 @@ class FaceRecognitionSystem:
             video_path: Ruta al clip ya guardado (opcional). Si es None, detiene la grabación.
         """
         try:
+            if not self._ensure_authenticated():
+                logger.warning("No autenticado. Saltando envío de alerta.")
+                return
+
             if video_path is None:
                 video_path = self.video_recorder.stop_recording(identity=person_name)
             
@@ -233,11 +241,13 @@ class FaceRecognitionSystem:
             # Subir video
             logger.info(f"Subiendo video: {video_path}")
             video_url = self.api.upload_video(video_path)
-            
+
             if not video_url:
-                logger.error("No se pudo subir el video")
+                logger.error("No se pudo subir el video (upload_video devolvió None)")
                 return
-            
+
+            logger.debug(f"Video subido OK, videoUrl: {video_url}")
+
             # Crear alerta
             message = f"Persona reconocida: {person_name} (similitud: {similarity:.2%})"
             alert = self.api.create_alert(
@@ -247,12 +257,13 @@ class FaceRecognitionSystem:
             )
             
             if alert:
-                logger.info(f"Alerta enviada exitosamente: {alert.get('id')}")
-                
+                logger.info(
+                    f"Alerta enviada exitosamente: id={alert.get('id')}, videoUrl={alert.get('videoUrl')}"
+                )
                 # Opcional: eliminar video local después de subir
                 # video_path.unlink()
             else:
-                logger.error("No se pudo crear la alerta")
+                logger.error("No se pudo crear la alerta (create_alert devolvió None)")
                 
         except Exception as e:
             logger.error(f"Error enviando alerta: {e}")
@@ -270,24 +281,37 @@ class FaceRecognitionSystem:
         self.running = True
         logger.info("Iniciando loop de reconocimiento...")
         
+        # Hilo de captura: solo él llama add_frame, a FPS constante.
+        self.capture_thread = CameraCaptureThread(
+            self.camera, self.video_recorder, target_fps=VIDEO_FPS
+        )
+        self.capture_thread.start()
+        logger.info("Hilo de captura iniciado (FPS constante para video)")
+        
         frame_count = 0
         last_detection_time = None
+        last_auth_retry = time.time()
         
         try:
             while self.running:
-                ret, frame = self.camera.read()
-                if not ret:
-                    logger.warning("No se pudo leer frame de la cámara")
-                    time.sleep(0.1)
+                frame = self.capture_thread.get_latest_frame()
+                if frame is None:
+                    time.sleep(0.01)
                     continue
                 
                 frame_count += 1
+
+                # Reintento periódico de autenticación si backend no estaba disponible al iniciar
+                if not self.auth.is_authenticated() and API_USERNAME and API_PASSWORD:
+                    now = time.time()
+                    if now - last_auth_retry >= AUTH_RETRY_INTERVAL:
+                        last_auth_retry = now
+                        logger.info("Reintentando autenticación (backend no disponible al iniciar)...")
+                        if self.auth.login(API_USERNAME, API_PASSWORD):
+                            logger.info("Reconexión exitosa con backend")
                 
                 # Detectar rostros
                 detections = self.detector.detect_faces(frame)
-                
-                # Añadir frame al grabador
-                self.video_recorder.add_frame(frame)
                 
                 if detections:
                     # Si no estábamos grabando, iniciar grabación
@@ -346,7 +370,6 @@ class FaceRecognitionSystem:
                             elapsed = time.time() - last_detection_time
                             if elapsed > 2.0:  # 2 segundos sin detecciones
                                 if not self.video_recorder.should_continue_recording():
-                                    # Tenemos suficientes frames, guardar clip
                                     identity = self.last_recognized_in_session or "unknown"
                                     path = self.video_recorder.stop_recording(identity=identity)
                                     if path and self.last_recognized_in_session and self._check_cooldown(
@@ -389,10 +412,14 @@ class FaceRecognitionSystem:
         if self.video_recorder.is_recording:
             self.video_recorder.stop_recording()
         
+        if self.capture_thread:
+            self.capture_thread.stop()
+            self.capture_thread.join(timeout=2.0)
+        
         if self.camera:
             self.camera.release()
         
-      cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
         
         logger.info("Recursos liberados")
 

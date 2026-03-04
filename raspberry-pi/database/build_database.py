@@ -218,12 +218,12 @@ def main():
                         continue
                     
                     # Extraer embedding: InsightFace para crops aumentados, o MobileFaceNet
+                    # Importante: no mezclar dimensiones (InsightFace=512 vs MobileFaceNet=128)
                     if use_insightface:
                         aug_emb = detector.extract_embedding_from_face(aug_rgb)
                         if aug_emb is None:
-                            aug_emb = recognizer.extract_embedding(aug_rgb)
-                        else:
-                            aug_emb = np.asarray(aug_emb).flatten()
+                            continue  # Omitir si falla; evita mezclar 512d con 128d
+                        aug_emb = np.asarray(aug_emb).flatten()
                     else:
                         aug_emb = recognizer.extract_embedding(aug_rgb)
                     collected.append(aug_emb)
@@ -242,11 +242,13 @@ def main():
         agg = mat.mean(axis=0)
         agg = l2_normalize(agg)
         
+        augs_used = len(collected) - used_faces
         per_id_agg[ident] = agg
         per_id_embs[ident] = mat
         per_id_stats[ident] = {
             "base_images": len(img_files),
             "faces_used": used_faces,
+            "augmentations_used": augs_used,
             "skipped": skipped,
             "total_embs": len(collected)
         }
@@ -273,11 +275,13 @@ def main():
     logger.info(f"  Total personas: {len(id_list)}")
     logger.info(f"  Total embeddings agregados: {embeddings_array.shape[0]}")
     
+    total_augs = sum(per_id_stats[i]["augmentations_used"] for i in id_list)
+    logger.info(f"  Augmentaciones utilizadas: {total_augs} embeddings de imágenes aumentadas")
     logger.info(f"\n=== Estadísticas por identidad ===")
     for ident in id_list[:20]:  # Mostrar primeras 20
         stats = per_id_stats[ident]
         logger.info(
-            f"{ident}: {stats['faces_used']} rostros usados, "
+            f"{ident}: {stats['faces_used']} rostros, {stats['augmentations_used']} augment., "
             f"{stats['total_embs']} embeddings totales "
             f"({stats['skipped']} imágenes omitidas)"
         )

@@ -80,6 +80,11 @@ class GateLockAPI:
                 video_url = data.get("videoUrl")
                 logger.info(f"Video subido exitosamente: {video_url}")
                 return video_url
+            elif response.status_code == 401:
+                logger.warning("Token inválido o expirado (401). Se requiere nuevo login.")
+                self.auth.logout()
+                logger.error(f"Error al subir video: {response.status_code} - {response.text}")
+                return None
             else:
                 logger.error(f"Error al subir video: {response.status_code} - {response.text}")
                 return None
@@ -134,6 +139,11 @@ class GateLockAPI:
                 alert = data.get("alert")
                 logger.info(f"Alerta creada exitosamente: {alert.get('id')}")
                 return alert
+            elif response.status_code == 401:
+                logger.warning("Token inválido o expirado (401). Se requiere nuevo login.")
+                self.auth.logout()
+                logger.error(f"Error al crear alerta: {response.status_code} - {response.text}")
+                return None
             else:
                 logger.error(f"Error al crear alerta: {response.status_code} - {response.text}")
                 return None

@@ -3,8 +3,14 @@ Grabación de clips de video con buffer circular.
 
 Mantiene un buffer de los últimos N frames para poder guardar clips que incluyan
 momentos antes de la detección de un rostro.
+
+Los clips se graban inicialmente con codec mp4v (OpenCV) y se re-encodan a H.264
+con ffmpeg si está disponible, para compatibilidad con navegadores web.
 """
 import re
+import subprocess
+import shutil
+import tempfile
 import cv2
 import numpy as np
 from pathlib import Path
@@ -54,7 +60,7 @@ class VideoClipRecorder:
         buffer_frames = int(buffer_seconds * fps)
         self.buffer: deque = deque(maxlen=buffer_frames)
         
-        # Estado de grabación
+        # Estado de grabación (FPS uniforme gracias al hilo de captura)
         self.is_recording = False
         self.recording_frames: List[np.ndarray] = []
         self.frame_size: Optional[tuple] = None  # (width, height)
@@ -95,8 +101,9 @@ class VideoClipRecorder:
         self.is_recording = True
         self.recording_frames = []
         
-        # Incluir frames del buffer previo
-        for frame in self.buffer:
+        # Copiar buffer (evita "deque mutated during iteration" con hilo de captura)
+        buffer_snapshot = list(self.buffer)
+        for frame in buffer_snapshot:
             self.recording_frames.append(frame.copy())
         
         logger.info(f"Iniciando grabación de clip (buffer: {len(self.buffer)} frames)")
@@ -124,12 +131,11 @@ class VideoClipRecorder:
         # Calcular frames necesarios
         total_frames_needed = int(self.clip_duration_seconds * self.fps)
         
-        # Si tenemos menos frames, usar los que tenemos
         # Si tenemos más, truncar al inicio (mantener los últimos)
         if len(self.recording_frames) > total_frames_needed:
             self.recording_frames = self.recording_frames[-total_frames_needed:]
         
-        # Guardar clip
+        # Guardar clip (FPS uniforme desde hilo de captura)
         output_path = self._save_clip(self.recording_frames, identity)
         
         # Limpiar
@@ -145,48 +151,86 @@ class VideoClipRecorder:
         sanitized = re.sub(r"[^a-zA-Z0-9_-]", "_", identity.strip())
         return sanitized[:50] if len(sanitized) > 50 else sanitized
 
-    def _save_clip(self, frames: List[np.ndarray], identity: Optional[str] = None) -> Path:
+    def _reencode_to_h264(self, source_path: Path, target_path: Path) -> bool:
         """
-        Guarda un clip de video desde una lista de frames.
-        
-        Args:
-            frames: Lista de frames BGR
-            identity: Nombre de la persona reconocida (opcional). Se incluye en el nombre.
-            
+        Re-encoda un video mp4v a H.264 con ffmpeg para compatibilidad con navegadores.
+
         Returns:
-            Ruta al archivo guardado
+            True si la re-codificación fue exitosa, False en caso contrario.
         """
+        if not shutil.which('ffmpeg'):
+            logger.debug("ffmpeg no encontrado, el video se mantendrá en codec mp4v (puede no reproducirse en navegadores)")
+            return False
+
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+                tmp_path = Path(tmp.name)
+
+            result = subprocess.run(
+                [
+                    'ffmpeg', '-y',
+                    '-i', str(source_path),
+                    '-c:v', 'libx264',
+                    '-preset', 'fast',
+                    '-crf', '23',
+                    '-pix_fmt', 'yuv420p',  # Necesario para compatibilidad con navegadores
+                    '-movflags', '+faststart',  # Optimiza para reproducción web
+                    str(tmp_path),
+                ],
+                capture_output=True,
+                timeout=60,
+            )
+
+            if result.returncode == 0 and tmp_path.exists():
+                shutil.move(str(tmp_path), str(target_path))
+                return True
+            else:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+                logger.warning(f"ffmpeg falló: {result.stderr.decode(errors='ignore')[:200]}")
+                return False
+        except subprocess.TimeoutExpired:
+            logger.warning("ffmpeg excedió el tiempo límite")
+            return False
+        except Exception as e:
+            logger.warning(f"Error al re-codificar con ffmpeg: {e}")
+            return False
+
+    def _save_clip(self, frames: List[np.ndarray], identity: Optional[str] = None) -> Path:
+        """Guarda un clip de video. FPS uniforme desde hilo de captura."""
         if len(frames) == 0 or self.frame_size is None:
             raise ValueError("No hay frames para guardar o tamaño de frame no definido")
         
-        # Generar nombre con identidad si está disponible
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        ts_str = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         ident_part = self._sanitize_identity(identity)
-        filename = f"clip_{ident_part}_{timestamp}.mp4"
+        filename = f"clip_{ident_part}_{ts_str}.mp4"
         output_path = self.output_dir / filename
-        
-        # Configurar codec y writer
+
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        writer = cv2.VideoWriter(
-            str(output_path),
-            fourcc,
-            self.fps,
-            self.frame_size
-        )
-        
+        writer = cv2.VideoWriter(str(output_path), fourcc, self.fps, self.frame_size)
         if not writer.isOpened():
             raise RuntimeError(f"No se pudo abrir el VideoWriter para {output_path}")
         
-        # Escribir frames
         for frame in frames:
-            # Asegurar que el frame tiene el tamaño correcto
             if frame.shape[:2][::-1] != self.frame_size:
                 frame = cv2.resize(frame, self.frame_size)
             writer.write(frame)
         
         writer.release()
+
+        temp_path = output_path.with_suffix('.tmp.mp4')
+        try:
+            output_path.rename(temp_path)
+            playback_sec = len(frames) / self.fps
+            if self._reencode_to_h264(temp_path, output_path):
+                logger.info(f"Clip guardado (H.264): {output_path} ({len(frames)} frames, {playback_sec:.2f}s)")
+            else:
+                temp_path.rename(output_path)
+                logger.info(f"Clip guardado (mp4v): {output_path} ({len(frames)} frames, {playback_sec:.2f}s)")
+        finally:
+            if temp_path.exists():
+                temp_path.unlink(missing_ok=True)
         
-        logger.info(f"Clip guardado: {output_path} ({len(frames)} frames, {len(frames)/self.fps:.2f}s)")
         return output_path
     
     def should_continue_recording(self) -> bool:

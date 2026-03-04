@@ -58,9 +58,9 @@ app.use('/api/persons', personRoutes)
 app.use('/api/alerts', alertRoutes)
 app.use('/api/videos', videoRoutes)
 
-// Serve uploaded videos statically
+// Serve uploaded videos statically (with explicit CORS for cross-origin video requests)
 const uploadsDir = path.join(process.cwd(), 'uploads', 'videos')
-app.use('/uploads/videos', express.static(uploadsDir))
+app.use('/uploads/videos', cors(corsOptions), express.static(uploadsDir))
 
 // Error handling middleware (must be last)
 app.use(errorHandler)
