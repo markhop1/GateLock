@@ -45,9 +45,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Clear auth data and redirect to login
-      localStorage.removeItem('auth-storage')
-      window.location.href = '/login'
+      const reqUrl = error.config?.url ?? ''
+      // Skip redirect for login/register - let the page show the error message
+      if (!reqUrl.includes('/auth/login') && !reqUrl.includes('/auth/register')) {
+        localStorage.removeItem('auth-storage')
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }
