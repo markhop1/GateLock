@@ -139,7 +139,7 @@ export default function AddPersonPage() {
       )}
 
       {success && (
-        <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-md flex items-center gap-2">
+        <div className="mb-6 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400 px-4 py-3 rounded-md flex items-center gap-2">
           <CheckCircleIcon className="w-5 h-5" />
           <span>Operación completada correctamente</span>
         </div>
@@ -311,7 +311,7 @@ export default function AddPersonPage() {
                         <button
                           onClick={() => handleUpdateName(person.id)}
                           disabled={loading}
-                          className="p-2 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 transition-colors disabled:opacity-50"
+                          className="p-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-colors disabled:opacity-50"
                           title="Guardar cambios"
                         >
                           <CheckIcon className="w-5 h-5" />

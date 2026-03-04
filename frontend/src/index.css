@@ -2,14 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme: paleta primary verde (tailwind.config.js) */
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
-  --primary-bg: 16 185 129; /* primary-500 */
-  --primary-bg-end: 4 120 87; /* primary-700 */
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
 
@@ -33,6 +32,6 @@ body {
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
-    background-color: #ecfdf5; /* primary-50 - subtle green tint */
+    background-color: #ecfdf5; /* primary-50 */
   }
 }

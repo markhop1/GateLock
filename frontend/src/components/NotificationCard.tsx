@@ -18,7 +18,7 @@ export default function NotificationCard({
   const getStatusIcon = () => {
     switch (notification.status) {
       case 'accepted':
-        return <CheckCircleIcon className="w-5 h-5 text-green-500" />
+        return <CheckCircleIcon className="w-5 h-5 text-primary-500" />
       case 'ignored':
         return <XCircleIcon className="w-5 h-5 text-red-500" />
       case 'unanswered':
@@ -87,7 +87,7 @@ export default function NotificationCard({
         <div className="flex flex-col sm:flex-row gap-2">
           <button
             onClick={() => onAction(notification.id, 'accepted')}
-            className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
+            className="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
           >
             Abrir
           </button>

@@ -42,7 +42,7 @@ export default function AlertDetailPage() {
   const getStatusIcon = () => {
     switch (notification.status) {
       case 'accepted':
-        return <CheckCircleIcon className="w-6 h-6 text-green-500" />
+        return <CheckCircleIcon className="w-6 h-6 text-primary-500" />
       case 'ignored':
         return <XCircleIcon className="w-6 h-6 text-red-500" />
       case 'unanswered':

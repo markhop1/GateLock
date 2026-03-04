@@ -15,7 +15,7 @@ export default function HistoryPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'accepted':
-        return <CheckCircleIcon className="w-5 h-5 text-green-500" />
+        return <CheckCircleIcon className="w-5 h-5 text-primary-500" />
       case 'ignored':
         return <XCircleIcon className="w-5 h-5 text-red-500" />
       case 'unanswered':
