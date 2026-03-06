@@ -1,16 +1,14 @@
+import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 import path from 'path'
 import { connectDB } from './config/database.js'
 import authRoutes from './routes/auth.routes.js'
 import personRoutes from './routes/person.routes.js'
 import alertRoutes from './routes/alert.routes.js'
 import videoRoutes from './routes/video.routes.js'
+import nukiRoutes from './routes/nuki.routes.js'
 import { errorHandler } from './middleware/errorHandler.js'
-
-// Load environment variables
-dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -57,6 +55,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/persons', personRoutes)
 app.use('/api/alerts', alertRoutes)
 app.use('/api/videos', videoRoutes)
+app.use('/api/nuki', nukiRoutes)
 
 // Serve uploaded videos statically (with explicit CORS for cross-origin video requests)
 const uploadsDir = path.join(process.cwd(), 'uploads', 'videos')

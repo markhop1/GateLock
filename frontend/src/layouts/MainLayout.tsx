@@ -4,12 +4,14 @@ import {
   HomeIcon, 
   ClockIcon, 
   UserPlusIcon, 
+  LockClosedIcon,
   Cog6ToothIcon 
 } from '@heroicons/react/24/outline'
 import {
   HomeIcon as HomeIconSolid,
   ClockIcon as ClockIconSolid,
   UserPlusIcon as UserPlusIconSolid,
+  LockClosedIcon as LockClosedIconSolid,
   Cog6ToothIcon as Cog6ToothIconSolid,
 } from '@heroicons/react/24/solid'
 
@@ -24,6 +26,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
     { path: '/', icon: HomeIcon, iconSolid: HomeIconSolid, label: 'Inicio' },
     { path: '/history', icon: ClockIcon, iconSolid: ClockIconSolid, label: 'Historial' },
     { path: '/access', icon: UserPlusIcon, iconSolid: UserPlusIconSolid, label: 'Acceso' },
+    { path: '/lock', icon: LockClosedIcon, iconSolid: LockClosedIconSolid, label: 'Candado' },
     { path: '/settings', icon: Cog6ToothIcon, iconSolid: Cog6ToothIconSolid, label: 'Ajustes' },
   ]
 

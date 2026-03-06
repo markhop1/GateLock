@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { Alert, AlertStatus } from '../models/Alert.model.js'
 import { Person } from '../models/Person.model.js'
 import { AuthRequest } from '../middleware/auth.middleware.js'
+import * as nukiService from '../services/nuki.service.js'
 
 const EXPIRATION_TIME_MS = 5 * 60 * 1000 // 5 minutos
 
@@ -198,6 +199,10 @@ export const updateAlertStatus = async (
     alert.decisionTimestamp = new Date()
 
     await alert.save()
+
+    if (status === 'accepted') {
+      void nukiService.unlock()
+    }
 
     res.json({
       alert: {

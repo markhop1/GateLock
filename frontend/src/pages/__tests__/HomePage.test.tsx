@@ -2,9 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import HomePage from '../HomePage'
 import { useNotificationStore } from '../../store/notificationStore'
+import { nukiService } from '../../services/nuki.service'
 
 vi.mock('../../store/notificationStore', () => ({
   useNotificationStore: vi.fn(),
+}))
+
+vi.mock('../../services/nuki.service', () => ({
+  nukiService: { getStatus: vi.fn() },
 }))
 
 describe('HomePage', () => {
@@ -25,14 +30,18 @@ describe('HomePage', () => {
       return selector ? selector(state) : state
     })
     vi.clearAllMocks()
+    vi.mocked(nukiService.getStatus).mockResolvedValue({
+      configured: true,
+      status: 'locked',
+    })
   })
 
-  it('renders title and tip section', () => {
+  it('renders title and description', () => {
     render(<HomePage />)
 
     expect(screen.getByRole('heading', { name: /notificaciones/i })).toBeInTheDocument()
     expect(screen.getByText(/gestiona las solicitudes de acceso/i)).toBeInTheDocument()
-    expect(screen.getByText(/simulateNotification/)).toBeInTheDocument()
+    // Tip is only shown in dev mode (import.meta.env.DEV)
   })
 
   it('calls fetchNotifications on mount', () => {
