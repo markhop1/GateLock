@@ -150,9 +150,10 @@ class APIAuth:
             
             # Verificar si está expirado
             if self._token_expires_at and time.time() >= self._token_expires_at:
-                logger.info("Token en caché está expirado")
+                logger.info("Token en caché está expirado. Eliminando caché.")
                 self._token = None
                 self._token_expires_at = None
+                self.token_cache_file.unlink(missing_ok=True)
                 return
             
             logger.debug("Token cargado desde caché")
