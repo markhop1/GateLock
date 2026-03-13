@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   LockClosedIcon,
   LockOpenIcon,
   ExclamationTriangleIcon,
   ArrowPathIcon,
+  InformationCircleIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline'
 import { nukiService, type LockStatus } from '../services/nuki.service'
 
@@ -15,11 +17,21 @@ const LABELS: Record<LockStatus, string> = {
   unknown: 'Estado desconocido',
 }
 
+const POLL_INTERVAL_MS = 2000
+const TIMEOUT_MS = 30000
+
+function isUnlockedStatus(status: LockStatus): boolean {
+  return status === 'unlocked' || status === 'unlatched'
+}
+
 export default function LockPage() {
   const [lockStatus, setLockStatus] = useState<Awaited<ReturnType<typeof nukiService.getStatus>> | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<'lock' | 'unlock' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [actionResult, setActionResult] = useState<'success' | 'timeout' | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchStatus = async () => {
     try {
@@ -38,34 +50,81 @@ export default function LockPage() {
     fetchStatus()
   }, [])
 
-  const handleLock = async () => {
-    try {
-      setActionLoading('lock')
-      setError(null)
-      await nukiService.lock()
-      setLockStatus((prev) =>
-        prev && prev.configured === true ? { ...prev, status: 'locked' as const } : prev
-      )
-      setTimeout(fetchStatus, 2500)
-    } catch {
-      setError('No se ha podido cerrar el candado')
-    } finally {
-      setActionLoading(null)
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
-  }
+  }, [])
 
-  const handleUnlock = async () => {
+  const executeAction = async (action: 'lock' | 'unlock') => {
+    setActionLoading(action)
+    setError(null)
+    setActionResult(null)
+
+    const startTime = Date.now()
+    const expectedUnlocked = action === 'unlock'
+
     try {
-      setActionLoading('unlock')
-      setError(null)
-      await nukiService.unlock()
-      setLockStatus((prev) =>
-        prev && prev.configured === true ? { ...prev, status: 'unlocked' as const } : prev
-      )
-      setTimeout(fetchStatus, 2500)
+      if (action === 'lock') {
+        await nukiService.lock()
+      } else {
+        await nukiService.unlock()
+      }
+
+      const checkStatus = async () => {
+        if (Date.now() - startTime > TIMEOUT_MS) {
+          if (pollRef.current) clearInterval(pollRef.current)
+          setError('El candado no ha respondido en 30 segundos. Comprueba la conexión o intenta de nuevo.')
+          setActionResult('timeout')
+          setActionLoading(null)
+          return
+        }
+
+        try {
+          const status = await nukiService.getStatus()
+          if (status.configured && status.status !== 'unavailable' && status.status !== 'unknown') {
+            setLockStatus(status)
+            const isUnlocked = isUnlockedStatus(status.status)
+            if (expectedUnlocked === isUnlocked) {
+              if (pollRef.current) {
+                clearInterval(pollRef.current)
+                pollRef.current = null
+              }
+              if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current)
+                timeoutRef.current = null
+              }
+              setError(null)
+              setActionResult('success')
+              setActionLoading(null)
+              setTimeout(() => setActionResult(null), 4000)
+            }
+          }
+        } catch {
+          // Ignorar errores de poll, seguir intentando
+        }
+      }
+
+      pollRef.current = setInterval(checkStatus, POLL_INTERVAL_MS)
+      checkStatus()
+
+      const remainingMs = Math.max(1000, TIMEOUT_MS - (Date.now() - startTime))
+      timeoutRef.current = setTimeout(() => {
+        if (pollRef.current) {
+          clearInterval(pollRef.current)
+          pollRef.current = null
+          setError('El candado no ha respondido en 30 segundos. Comprueba la conexión o intenta de nuevo.')
+          setActionResult('timeout')
+          setActionLoading(null)
+        }
+      }, remainingMs)
     } catch {
-      setError('No se ha podido abrir el candado')
-    } finally {
+      setError(
+        action === 'lock'
+          ? 'No se ha podido cerrar el candado'
+          : 'No se ha podido abrir el candado'
+      )
       setActionLoading(null)
     }
   }
@@ -137,7 +196,7 @@ export default function LockPage() {
 
             <div className="flex gap-4">
               <button
-                onClick={handleUnlock}
+                onClick={() => executeAction('unlock')}
                 disabled={actionLoading !== null}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium py-3 px-6 rounded-lg transition-colors"
               >
@@ -149,7 +208,7 @@ export default function LockPage() {
                 Abrir
               </button>
               <button
-                onClick={handleLock}
+                onClick={() => executeAction('lock')}
                 disabled={actionLoading !== null}
                 className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white font-medium py-3 px-6 rounded-lg transition-colors"
               >
@@ -161,6 +220,25 @@ export default function LockPage() {
                 Cerrar
               </button>
             </div>
+
+            {actionLoading && (
+              <p className="text-sm text-primary-600 dark:text-primary-400 flex items-center gap-2">
+                <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                Enviando comando al candado. Puede tardar 10-15 segundos en responder.
+              </p>
+            )}
+
+            {actionResult === 'success' && (
+              <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-2">
+                <CheckCircleIcon className="w-5 h-5" />
+                Comando ejecutado correctamente
+              </p>
+            )}
+
+            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5 max-w-sm text-center">
+              <InformationCircleIcon className="w-4 h-4 shrink-0" />
+              El candado puede tardar entre 10 y 15 segundos en responder debido a la conexión con Nuki Cloud.
+            </p>
 
             <button
               onClick={fetchStatus}
