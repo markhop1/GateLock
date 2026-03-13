@@ -235,11 +235,6 @@ export default function LockPage() {
               </p>
             )}
 
-            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5 max-w-sm text-center">
-              <InformationCircleIcon className="w-4 h-4 shrink-0" />
-              El candado puede tardar entre 10 y 15 segundos en responder debido a la conexión con Nuki Cloud.
-            </p>
-
             <button
               onClick={fetchStatus}
               disabled={loading}
