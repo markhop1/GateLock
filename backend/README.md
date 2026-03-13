@@ -76,7 +76,7 @@ npm start
 - `PATCH /api/alerts/:id/status` - Actualizar estado de alerta
 
 ### Videos
-- `POST /api/videos/upload` - Subir video (multipart, requiere autenticación)
+- `POST /api/videos/upload` - Subir video (multipart, requiere autenticación). En producción con R2 configurado, los videos se almacenan en Cloudflare R2; si no, en el sistema de archivos local.
 
 ### Nuki Smart Lock
 - `GET /api/nuki/status` - Estado del cerrojo

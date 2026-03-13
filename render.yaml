@@ -11,7 +11,7 @@ services:
     rootDir: backend
     plan: free
 
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
 
     healthCheckPath: /api/health
@@ -30,6 +30,16 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false
       - key: NUKI_TOKEN
         sync: false
       - key: NUKI_SMARTLOCK_ID
