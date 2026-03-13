@@ -347,17 +347,14 @@ class FaceRecognitionSystem:
                         identity = self.last_recognized_in_session or "unknown"
                         path = self.video_recorder.stop_recording(identity=identity)
                         if path:
-                            # Si reconocimos y no estábamos en cooldown, enviar alerta
-                            if (
-                                self.last_recognized_in_session
-                                and self._check_cooldown(self.last_recognized_in_session)
-                            ):
+                            person_name = self.last_recognized_in_session or "Persona desconocida"
+                            if self._check_cooldown(person_name):
                                 now = datetime.now()
-                                self.last_alert_time[self.last_recognized_in_session] = now
+                                self.last_alert_time[person_name] = now
                                 self.last_alert_any_time = now
                                 self._send_alert(
-                                    self.last_recognized_in_session,
-                                    self.last_similarity,
+                                    person_name,
+                                    self.last_similarity if self.last_recognized_in_session else 0.0,
                                     video_path=path,
                                 )
                         self.last_recognized_in_session = None
@@ -372,17 +369,17 @@ class FaceRecognitionSystem:
                                 if not self.video_recorder.should_continue_recording():
                                     identity = self.last_recognized_in_session or "unknown"
                                     path = self.video_recorder.stop_recording(identity=identity)
-                                    if path and self.last_recognized_in_session and self._check_cooldown(
-                                        self.last_recognized_in_session
-                                    ):
-                                        now = datetime.now()
-                                        self.last_alert_time[self.last_recognized_in_session] = now
-                                        self.last_alert_any_time = now
-                                        self._send_alert(
-                                            self.last_recognized_in_session,
-                                            self.last_similarity,
-                                            video_path=path,
-                                        )
+                                    if path:
+                                        person_name = self.last_recognized_in_session or "Persona desconocida"
+                                        if self._check_cooldown(person_name):
+                                            now = datetime.now()
+                                            self.last_alert_time[person_name] = now
+                                            self.last_alert_any_time = now
+                                            self._send_alert(
+                                                person_name,
+                                                self.last_similarity if self.last_recognized_in_session else 0.0,
+                                                video_path=path,
+                                            )
                                     self.last_recognized_in_session = None
                                     self.last_similarity = 0.0
                                     last_detection_time = None
