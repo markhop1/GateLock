@@ -71,9 +71,17 @@ npm start
 
 ### Alertas
 - `POST /api/alerts` - Crear alerta
-- `GET /api/alerts` - Listar alertas 
+- `GET /api/alerts` - Listar alertas
 - `GET /api/alerts/:id` - Obtener alerta por ID
 - `PATCH /api/alerts/:id/status` - Actualizar estado de alerta
+
+### Videos
+- `POST /api/videos/upload` - Subir video (multipart, requiere autenticación)
+
+### Nuki Smart Lock
+- `GET /api/nuki/status` - Estado del cerrojo
+- `POST /api/nuki/unlock` - Desbloquear
+- `POST /api/nuki/lock` - Bloquear
 
 ### Health Check
 - `GET /api/health` - Estado del servidor
@@ -97,11 +105,13 @@ backend/
 │   ├── middleware/      # Middleware (auth, error handling)
 │   ├── models/          # Modelos de Mongoose
 │   ├── routes/          # Definición de rutas
+│   ├── services/        # Nuki, etc.
 │   ├── utils/           # Utilidades (JWT, etc.)
 │   └── index.ts         # Punto de entrada
 ├── dist/                # Build de producción
 └── package.json
 ```
+
 
 ## Scripts disponibles
 

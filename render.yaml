@@ -1,0 +1,38 @@
+# GateLock Backend - Render Blueprint
+# https://docs.render.com/blueprint-spec
+#
+# Dominio: gatelock-api.tableboardquest.com
+# Las variables sensibles (MONGODB_URI, JWT_SECRET, etc.) se configuran en el Dashboard de Render
+
+services:
+  - type: web
+    runtime: node
+    name: gatelock-backend
+    rootDir: backend
+    plan: free
+
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+
+    healthCheckPath: /api/health
+
+    domains:
+      - gatelock-api.tableboardquest.com
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CORS_ORIGIN
+        value: https://gatelock.tableboardquest.com
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NUKI_TOKEN
+        sync: false
+      - key: NUKI_SMARTLOCK_ID
+        sync: false
+      - key: NUKI_ACTION
+        value: unlock

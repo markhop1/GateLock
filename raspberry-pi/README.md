@@ -108,7 +108,7 @@ La Raspberry Pi se conecta al backend para subir videos y crear alertas. Configu
 **Ejemplos por entorno:**
 - **Mismo equipo**: `API_BASE_URL=http://localhost:5000/api`
 - **Red local** (backend en 192.168.0.12): `API_BASE_URL=http://192.168.0.12:5000/api`
-- **Producción**: `API_BASE_URL=https://api.tudominio.com/api`
+- **Producción**: Configurar la URL del backend según tu despliegue.
 
 **Verificar conexión:**
 ```bash

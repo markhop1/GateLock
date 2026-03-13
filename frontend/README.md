@@ -19,6 +19,10 @@ Frontend de la aplicación GateLock construido con React, TypeScript, Vite y Tai
 npm install
 ```
 
+## Configuración
+
+Copia `.env.example` a `.env` y ajusta `VITE_API_URL` si el backend no está en `http://localhost:5000/api`.
+
 ## Desarrollo
 
 ```bash
@@ -41,14 +45,16 @@ npm run dev
 frontend/
 ├── src/
 │   ├── components/     # Componentes reutilizables
-│   ├── layouts/         # Layouts de la aplicación
-│   ├── pages/           # Páginas principales
-│   ├── store/           # Stores de Zustand
-│   ├── test/            # Configuración de tests
-│   └── main.tsx         # Punto de entrada
-├── public/              # Archivos estáticos
+│   ├── layouts/        # Layouts de la aplicación
+│   ├── pages/          # Páginas principales
+│   ├── services/       # API client
+│   ├── store/          # Stores de Zustand
+│   ├── test/           # Configuración de tests
+│   └── main.tsx        # Punto de entrada
+├── public/             # Archivos estáticos
 └── package.json
 ```
+
 
 ## Simular notificaciones
 

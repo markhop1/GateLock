@@ -7,9 +7,11 @@ Its purpose is to serve as a security system capable of detecting, recognizing, 
 ## Architecture
 
 - **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS
-- **Backend**: Node.js
-- **Database**: MongoDB 
+- **Backend**: Node.js + Express + MongoDB
+- **Database**: MongoDB Atlas
+- **Raspberry Pi**: Python (face recognition, video capture, API integration)
 - **CI/CD**: GitHub Actions for unit tests
+
 
 ## Quick Start
 
@@ -52,11 +54,13 @@ simulateNotification('Person Name')
 
 ### Backend (Implemented)
 
-- REST API with Node.js
+- REST API with Node.js + Express
 - JWT Authentication
 - MongoDB integration
 - Real-time notifications via API
-- Face recognition system integration (pending)
+- Video upload from Raspberry Pi
+- Nuki Smart Lock integration (optional)
+- Face recognition integration via Raspberry Pi
 
 ## Project Structure
 
@@ -77,10 +81,17 @@ GateLock/
 │   │   ├── middleware/   # Middleware (auth, error handling)
 │   │   ├── models/       # Mongoose models
 │   │   ├── routes/       # Route definitions
-│   │   ├── utils/        # Utilities (JWT, etc.)
-│   │   └── index.ts      # Entry point
+│   │   ├── services/     # Nuki, etc.
+│   │   └── utils/        # Utilities (JWT, etc.)
 │   └── package.json
-├── spikes/           # Prototypes and experiments
+├── raspberry-pi/      # Face recognition (runs locally on device)
+│   ├── api/           # Backend API client
+│   ├── config/        # Configuration
+│   ├── database/      # Embeddings database
+│   ├── detection/     # Face detection
+│   ├── recognition/   # Face recognition
+│   └── main.py
+├── spikes/            # Prototypes and experiments
 │   └── FaceRecognitionPOC/
 └── .github/
     └── workflows/    # GitHub Actions
@@ -108,6 +119,12 @@ npm run test -- --run # Run tests once (CI mode)
 npm run test:coverage # Run tests with coverage report
 ```
 
+**Raspberry Pi:**
+```bash
+cd raspberry-pi
+pytest tests/unit/ -v
+```
+
 ### Test Coverage
 
 Tests are organized as follows:
@@ -122,42 +139,36 @@ Tests are organized as follows:
 - `src/controllers/__tests__/` - Controller tests
 - `src/middleware/__tests__/` - Middleware tests
 
+**Raspberry Pi:**
+- `tests/unit/` - Unit tests (pytest)
+
 ### GitHub Actions
 
 Tests run automatically on:
 - Push to `main` or `develop` branches
 - Pull requests to `main` or `develop` branches
-- Only when relevant files change (frontend/backend paths)
+- Only when relevant files change (frontend/backend/raspberry-pi paths)
+
+## Raspberry Pi Face Recognition
+
+The main face recognition system runs on a Raspberry Pi. See [raspberry-pi/README.md](raspberry-pi/README.md) for setup and usage.
 
 ## Face Recognition Proof of Concept
 
-A working facial-recognition prototype is available here:
-
-**[Face Recognition POC](spikes/FaceRecognitionPOC)**
-
-This POC demonstrates:
-- Real-time face detection and recognition running on a Raspberry Pi 5  
-- InsightFace models handling detection, embedding generation, and recognition  
-- Database generation from user-provided photos  
-- Live camera-based identification  
-- Video-based recognition with parameterized performance options (frame skipping, resizing, and optional video output)
-
-It is meant as a reference and testing ground before integrating biometric authentication into the main GateLock system.
+A standalone facial-recognition prototype is available at **[Face Recognition POC](spikes/FaceRecognitionPOC)**. It demonstrates InsightFace models and video-based recognition. The main production system is in `raspberry-pi/`.
 
 ---
 
 ## Project Status
 
-GateLock is under active development.
+- Frontend (React + TypeScript + Vite)
+- Backend (Node.js + Express + MongoDB)
+- JWT Authentication
+- REST API for persons, alerts, videos, Nuki
+- Frontend-backend integration
+- Raspberry Pi face recognition (InsightFace)
 
-- Frontend   (React + TypeScript + Vite)
-- Backend   (Node.js + Express + MongoDB)
-- JWT Authentication working
-- Complete REST API for persons and alerts
-- Frontend-backend integration complete
-- Face recognition integration pending
-
-Modules within `/spikes` are experimental and may change or be refactored before being included in the main core.
+Modules within `/spikes` are experimental.
 
 ## Complete Quick Start
 
