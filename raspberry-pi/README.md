@@ -1,17 +1,30 @@
 # Sistema de Reconocimiento Facial para Raspberry Pi
 
-Sistema completo de reconocimiento facial que detecta rostros en tiempo real, graba clips de video cuando detecta un rostro, identifica a la persona comparando con una base de datos de embeddings (generada con augmentación), y envía alertas al backend mediante API.
+Sistema completo de reconocimiento facial que detecta rostros en tiempo real, graba clips de video cuando detecta un rostro, identifica a la persona comparando con una base de datos de embeddings, y envía alertas al backend mediante API.
 
 ## Modelos Utilizados
 
-### Detección y Reconocimiento: InsightFace (buffalo_s)
+### Detección y Reconocimiento: InsightFace (buffalo_l)
 
-Por defecto el sistema usa **InsightFace** con el modelo `buffalo_s`, que incluye:
+Por defecto el sistema usa **InsightFace** con el modelo `buffalo_l`, que incluye:
 
 - **RetinaFace** para detección: WIDER FACE hard test set - AP 91.4%
-- **Embeddings (MBF/MobileFaceNet pre-entrenado)** para reconocimiento: LFW 99.70%, CFP-FP 98%
+- **Embeddings (ResNet50 + ArcFace)** para reconocimiento
 
 Los embeddings se extraen directamente de cada detección (`normed_embedding`) sin necesidad de un modelo MobileFaceNet separado. Son 512 dimensiones, L2-normalizados.
+
+#### Métricas de referencia para comparación (fuente oficial)
+
+Las métricas comparables para `buffalo_l` y `buffalo_s` están publicadas en el **InsightFace Model Zoo** (misma implementación y mismo protocolo de evaluación para ambos packs):
+
+| Model Pack | Backbone | LFW | CFP-FP | AgeDB-30 | IJB-B (TAR@FAR=1e-4) | IJB-C (TAR@FAR=1e-4) | MegaFace (Rank-1@1e-6) |
+|------------|----------|-----|--------|----------|----------------------|----------------------|-------------------------|
+| `buffalo_l` | ResNet50 + ArcFace | 99.83 | 99.33 | 98.23 | 93.16 | 90.29 | 74.96 |
+| `buffalo_s` | MobileFaceNet + ArcFace | 99.70 | 98.00 | 96.58 | 73.39 | 69.45 | 51.03 |
+
+Fuente: [InsightFace Model Zoo - Recognition accuracy of python library model packs](https://github.com/deepinsight/insightface/tree/master/model_zoo)
+
+Para evaluación tipo ROC/AUC en verificación, prioriza datasets como **IJB-B/IJB-C** (TAR@FAR), ya que LFW suele estar saturado cerca de 99%.
 
 ### Fallback: MobileFaceNet (TensorFlow)
 
@@ -57,7 +70,7 @@ pip install -r requirements.txt
 ### 4. Descargar modelos
 
 Los modelos se descargarán automáticamente la primera vez que ejecutes el programa:
-- **InsightFace** (RetinaFace + embeddings): se descarga automáticamente vía `buffalo_s`
+- **InsightFace** (RetinaFace + embeddings): se descarga automáticamente vía `buffalo_l`
 - **MobileFaceNet** (fallback): Solo si InsightFace no está disponible. Opcionalmente configura `MOBILEFACENET_MODEL_PATH` en `config/config.py` para un modelo pre-entrenado.
 
 ## Configuración
@@ -76,7 +89,7 @@ API_PASSWORD=tu_contraseña
 CAMERA_INDEX=0
 
 # Reconocimiento
-RECOGNITION_THRESHOLD=0.5
+RECOGNITION_THRESHOLD=0.35
 FACE_DETECTION_CONFIDENCE=0.5
 
 # Video
@@ -88,8 +101,7 @@ VIDEO_FPS=30
 KNOWN_FACES_DIR=./known_faces
 DATABASE_DIR=./database
 
-# Augmentación
-AUG_PER_IMAGE=20
+# Imágenes por identidad (para build_database.py)
 MAX_IMAGES_PER_ID=10
 ```
 
@@ -168,8 +180,7 @@ python database/build_database.py
 
 Este script:
 - Detecta rostros en todas las imágenes (RetinaFace)
-- Aplica augmentación para mejorar robustez
-- Genera embeddings usando InsightFace (o MobileFaceNet como fallback)
+- Extrae embeddings usando InsightFace directamente de cada detección original (o MobileFaceNet como fallback)
 - Guarda `face_embeddings.npy` y `face_labels.npy` en `database/`
 
 ### 3. Ejecutar sistema de reconocimiento
@@ -245,7 +256,7 @@ pip install -r requirements.txt
 Ejecuta `python database/build_database.py` primero.
 
 ### Rendimiento lento
-- Reduce `RETINAFACE_DET_SIZE` en `config/config.py` (ej: (240, 240))
+- Reduce `RETINAFACE_DET_SIZE` en `.env` (ej: `RETINAFACE_DET_SIZE=480,480`). El valor por defecto es 640×640, optimizado para precisión; reducirlo mejora la velocidad a costa de detectar peor rostros pequeños o lejanos.
 - InsightFace ya usa embeddings pre-entrenados (no requiere MobileFaceNet extra)
 - Considera usar GPU si está disponible
 
@@ -352,11 +363,82 @@ Los tests unitarios se ejecutan automáticamente en GitHub Actions cuando se mod
 
 Para validación completa, ejecuta los tests en tu Raspberry Pi antes de hacer commit.
 
+## Protocolo de Evaluación (ROC/AUC y TAR@FAR)
+
+Para comparar tu sistema con benchmarks de papers, evalua verificacion facial con pares
+de imagenes y similitud coseno sobre embeddings normalizados.
+
+### 1. Construir pares de evaluacion
+
+- Pares genuinos (misma identidad): etiqueta `1`
+- Pares impostores (identidades distintas): etiqueta `0`
+- Recomendado: particion por sujeto (sin mezclar la misma persona entre train y test)
+- Recomendado: incluir variaciones reales (iluminacion, distancia, angulo, oclusion)
+
+### 2. Extraer scores
+
+Para cada par, calcula el score de verificacion:
+
+- $s = e_1 \cdot e_2$ (coseno, con embeddings L2-normalizados)
+
+Guarda dos arreglos:
+
+- `y_true`: etiquetas binarias (0/1)
+- `y_score`: score de similitud por par
+
+### 3. Calcular ROC/AUC y TAR@FAR
+
+Ejemplo reproducible con `scikit-learn`:
+
+```python
+import numpy as np
+from sklearn.metrics import roc_curve, roc_auc_score
+
+def tar_at_far(y_true, y_score, target_far=1e-4):
+  fpr, tpr, thr = roc_curve(y_true, y_score)
+  valid = np.where(fpr <= target_far)[0]
+  if len(valid) == 0:
+    return 0.0, None
+  idx = valid[-1]
+  return float(tpr[idx]), float(thr[idx])
+
+# y_true: array (N,) con 0/1
+# y_score: array (N,) con similitud coseno
+auc = roc_auc_score(y_true, y_score)
+tar_1e4, thr_1e4 = tar_at_far(y_true, y_score, target_far=1e-4)
+tar_1e5, thr_1e5 = tar_at_far(y_true, y_score, target_far=1e-5)
+
+print(f"AUC: {auc:.6f}")
+print(f"TAR@FAR=1e-4: {tar_1e4:.6f} (thr={thr_1e4})")
+print(f"TAR@FAR=1e-5: {tar_1e5:.6f} (thr={thr_1e5})")
+```
+
+### 4. Comparar con referencias oficiales
+
+Para comparacion justa:
+
+- Usa el mismo tipo de metrica reportada por la referencia (por ejemplo TAR@FAR en IJB-B/IJB-C)
+- Reporta el tamaño del set, protocolo de particion y condiciones de captura
+- No uses solo accuracy en LFW para decisiones de produccion (tiende a saturar)
+
+Valores de referencia publicados para comparar `buffalo_l` vs `buffalo_s` estan en:
+
+- [InsightFace Model Zoo](https://github.com/deepinsight/insightface/tree/master/model_zoo)
+
+Si quieres aproximar el comportamiento de IJB-C, reporta al menos:
+
+- AUC
+- TAR@FAR=1e-4
+- TAR@FAR=1e-5
+- Threshold seleccionado y criterio de seleccion (por ejemplo max TPR con FAR objetivo)
+
 ## Referencias
 
 ### InsightFace / RetinaFace
 - Paper RetinaFace: [arXiv:1905.00641](https://arxiv.org/abs/1905.00641)
-- Embeddings (buffalo_s): LFW 99.70%, CFP-FP 98%
+- Paper ArcFace (loss usada en buffalo_l y buffalo_s): [arXiv:1801.07698](https://arxiv.org/abs/1801.07698)
+- Paper MobileFaceNet (backbone de buffalo_s): [arXiv:1804.07573](https://arxiv.org/abs/1804.07573)
+- InsightFace Model Zoo (métricas oficiales por model pack): [model_zoo](https://github.com/deepinsight/insightface/tree/master/model_zoo)
 
 ## Licencia
 

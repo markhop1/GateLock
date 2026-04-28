@@ -14,13 +14,19 @@ from tqdm import tqdm
 import cv2
 import logging
 
-import albumentations as A
-from PIL import Image
-
 from config import (
     KNOWN_FACES_DIR, DATABASE_DIR, EMBEDDINGS_FILE, LABELS_FILE,
-    AUG_PER_IMAGE, MAX_IMAGES_PER_ID
+    MAX_IMAGES_PER_ID
 )
+# NOTA: Se realizaron pruebas con augmentación de datos (albumentations + PIL) pero no se
+# determinó mejora en el rendimiento del reconocimiento con buffalo_l. Los embeddings de
+# InsightFace calculados sobre la imagen original completa resultaron más estables que los
+# obtenidos tras re-detectar sobre crops aumentados. Se mantiene el código comentado como
+# referencia.
+#
+# import albumentations as A
+# from PIL import Image
+# from config import AUG_PER_IMAGE  # también eliminar de la importación de arriba si se reactiva
 from detection.face_detector import RetinaFaceDetector
 from recognition.face_recognizer import MobileFaceNetRecognizer
 
@@ -33,52 +39,48 @@ def l2_normalize(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
     return x / (np.linalg.norm(x) + eps)
 
 
-def build_augmenter():
-    """
-    Construye el pipeline de augmentación.
-    
-    Aumentaciones centradas en iluminación + degradaciones realistas moderadas.
-    """
-    return A.Compose(
-        [
-            A.RandomBrightnessContrast(brightness_limit=0.35, contrast_limit=0.25, p=0.9),
-            A.RandomGamma(gamma_limit=(70, 150), p=0.7),
-            A.HueSaturationValue(hue_shift_limit=5, sat_shift_limit=20, val_shift_limit=10, p=0.6),
-            A.OneOf(
-                [
-                    A.GaussianBlur(blur_limit=(3, 7), p=1.0),
-                    A.MotionBlur(blur_limit=7, p=1.0),
-                ],
-                p=0.25,
-            ),
-            A.GaussNoise(std_range=(0.01, 0.05), mean_range=(0.0, 0.0), per_channel=True, p=0.25),
-            A.ImageCompression(quality_range=(35, 95), compression_type="jpeg", p=0.25),
-        ]
-    )
-
-
-def quality_gate(face_rgb: np.ndarray) -> bool:
-    """
-    Filtro de calidad: evita caras demasiado oscuras o demasiado quemadas.
-    
-    Args:
-        face_rgb: Imagen RGB del rostro (HxWx3 uint8)
-        
-    Returns:
-        True si la imagen pasa el filtro de calidad
-    """
-    gray = cv2.cvtColor(face_rgb, cv2.COLOR_RGB2GRAY)
-    mean = float(gray.mean())
-    near_black = float((gray < 10).mean())
-    near_white = float((gray > 245).mean())
-    
-    if mean < 35 or mean > 220:
-        return False
-    if near_black > 0.25:
-        return False
-    if near_white > 0.25:
-        return False
-    return True
+# ---------------------------------------------------------------------------
+# AUGMENTACIÓN — Código desactivado
+#
+# Se probó un pipeline de augmentación para aumentar artificialmente el número
+# de embeddings por identidad. No se observó mejora en similitud intra-clase
+# ni reducción de falsos negativos. El problema principal era que InsightFace
+# no puede re-extraer embeddings de alta calidad sobre crops pequeños ya
+# aumentados (baja resolución + artefactos de blur/noise). Desactivado en
+# favor de usar directamente el embedding de la detección original.
+#
+# def build_augmenter():
+#     return A.Compose(
+#         [
+#             A.RandomBrightnessContrast(brightness_limit=0.35, contrast_limit=0.25, p=0.9),
+#             A.RandomGamma(gamma_limit=(70, 150), p=0.7),
+#             A.HueSaturationValue(hue_shift_limit=5, sat_shift_limit=20, val_shift_limit=10, p=0.6),
+#             A.OneOf(
+#                 [
+#                     A.GaussianBlur(blur_limit=(3, 7), p=1.0),
+#                     A.MotionBlur(blur_limit=7, p=1.0),
+#                 ],
+#                 p=0.25,
+#             ),
+#             A.GaussNoise(std_range=(0.01, 0.05), mean_range=(0.0, 0.0), per_channel=True, p=0.25),
+#             A.ImageCompression(quality_range=(35, 95), compression_type="jpeg", p=0.25),
+#         ]
+#     )
+#
+# def quality_gate(face_rgb: np.ndarray) -> bool:
+#     """Filtra rostros demasiado oscuros o sobreexpuestos."""
+#     gray = cv2.cvtColor(face_rgb, cv2.COLOR_RGB2GRAY)
+#     mean = float(gray.mean())
+#     near_black = float((gray < 10).mean())
+#     near_white = float((gray > 245).mean())
+#     if mean < 35 or mean > 220:
+#         return False
+#     if near_black > 0.25:
+#         return False
+#     if near_white > 0.25:
+#         return False
+#     return True
+# ---------------------------------------------------------------------------
 
 
 def list_identities(root_dir: Path) -> list:
@@ -102,19 +104,13 @@ def list_images_for_identity(root_dir: Path, identity: str) -> list:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Construye base de datos de embeddings faciales con augmentación"
+        description="Construye base de datos de embeddings faciales"
     )
     parser.add_argument(
         "--data_dir",
         type=str,
         default=str(KNOWN_FACES_DIR),
         help="Directorio con subcarpetas por persona"
-    )
-    parser.add_argument(
-        "--aug_per_image",
-        type=int,
-        default=AUG_PER_IMAGE,
-        help="Número de aumentaciones por imagen"
     )
     parser.add_argument(
         "--max_images_per_id",
@@ -142,13 +138,10 @@ def main():
     logger.info("Inicializando modelos...")
     detector = RetinaFaceDetector()
     detector.initialize()
-    
+
     recognizer = MobileFaceNetRecognizer()
     recognizer.initialize()
-    
-    # Inicializar augmentación
-    aug = build_augmenter()
-    
+
     # Listar identidades
     identities = list_identities(data_dir)
     if not identities:
@@ -157,7 +150,7 @@ def main():
     
     logger.info(f"Encontradas {len(identities)} identidades")
     
-    per_id_agg = {}  # identity -> embedding agregado
+    per_id_agg = {}   # identity -> embedding agregado (media L2-normalizada)
     per_id_embs = {}  # identity -> lista de embeddings individuales
     per_id_stats = {}  # identity -> estadísticas
     
@@ -169,9 +162,8 @@ def main():
             continue
         
         collected = []
-        used_faces = 0
         skipped = 0
-        
+
         for img_path in img_files:
             try:
                 # Cargar imagen
@@ -179,55 +171,36 @@ def main():
                 if img_bgr is None:
                     skipped += 1
                     continue
-                
-                # Detectar rostro
+
+                # Detectar rostro — InsightFace ya produce embedding en esta llamada
                 detections = detector.detect_faces(img_bgr)
                 if not detections:
                     skipped += 1
                     continue
-                
+
                 # Usar el rostro más grande
                 largest = max(detections, key=lambda d: d.width * d.height)
-                
-                # Extraer crop del rostro
-                face_crop = largest.get_face_crop(img_bgr)
-                if face_crop.size == 0:
-                    skipped += 1
-                    continue
-                
-                # Convertir a RGB
-                face_rgb = cv2.cvtColor(face_crop, cv2.COLOR_BGR2RGB)
-                
-                # Preferir embedding de InsightFace si está disponible (más preciso)
-                use_insightface = getattr(largest, 'embedding', None) is not None
-                
-                if use_insightface:
-                    orig_emb = np.asarray(largest.embedding).flatten()
+
+                # Usar embedding ya calculado por InsightFace buffalo_l (512D, normed)
+                # Evita re-detectar en el crop, que degrada la calidad del embedding
+                if getattr(largest, 'embedding', None) is not None:
+                    emb = np.asarray(largest.embedding).flatten()
                 else:
-                    orig_emb = recognizer.extract_embedding(face_rgb)
-                
-                collected.append(orig_emb)
-                used_faces += 1
-                
-                # Aplicar augmentación
-                for _ in range(args.aug_per_image):
-                    aug_rgb = aug(image=face_rgb)["image"]
-                    
-                    # Filtrar por calidad
-                    if not quality_gate(aug_rgb):
+                    # Fallback: extraer con MobileFaceNet sobre el crop
+                    face_crop = largest.get_face_crop(img_bgr)
+                    if face_crop.size == 0:
+                        skipped += 1
                         continue
-                    
-                    # Extraer embedding: InsightFace para crops aumentados, o MobileFaceNet
-                    # Importante: no mezclar dimensiones (InsightFace=512 vs MobileFaceNet=128)
-                    if use_insightface:
-                        aug_emb = detector.extract_embedding_from_face(aug_rgb)
-                        if aug_emb is None:
-                            continue  # Omitir si falla; evita mezclar 512d con 128d
-                        aug_emb = np.asarray(aug_emb).flatten()
-                    else:
-                        aug_emb = recognizer.extract_embedding(aug_rgb)
-                    collected.append(aug_emb)
-                
+                    face_rgb = cv2.cvtColor(face_crop, cv2.COLOR_BGR2RGB)
+                    emb = recognizer.extract_embedding(face_rgb)
+
+                collected.append(emb)
+
+                # AUGMENTACIÓN DESACTIVADA — ver nota al inicio del archivo.
+                # Si se reactiva: inicializar aug = build_augmenter() antes del loop,
+                # iterar aug_per_image veces, filtrar con quality_gate() y extraer
+                # embedding con detector.extract_embedding_from_face(aug_rgb).
+
             except Exception as e:
                 logger.warning(f"Error procesando {img_path}: {e}")
                 skipped += 1
@@ -238,19 +211,15 @@ def main():
             continue
         
         # Agregar embeddings (media + L2 normalization)
-        mat = np.stack(collected, axis=0)  # (K, embedding_size)
-        agg = mat.mean(axis=0)
-        agg = l2_normalize(agg)
-        
-        augs_used = len(collected) - used_faces
+        mat = np.stack(collected, axis=0)  # (K, 512)
+        agg = l2_normalize(mat.mean(axis=0))
+
         per_id_agg[ident] = agg
         per_id_embs[ident] = mat
         per_id_stats[ident] = {
             "base_images": len(img_files),
-            "faces_used": used_faces,
-            "augmentations_used": augs_used,
+            "faces_used": len(collected),
             "skipped": skipped,
-            "total_embs": len(collected)
         }
     
     if not per_id_agg:
@@ -274,15 +243,12 @@ def main():
     logger.info(f"  Labels: {labels_path}")
     logger.info(f"  Total personas: {len(id_list)}")
     logger.info(f"  Total embeddings agregados: {embeddings_array.shape[0]}")
-    
-    total_augs = sum(per_id_stats[i]["augmentations_used"] for i in id_list)
-    logger.info(f"  Augmentaciones utilizadas: {total_augs} embeddings de imágenes aumentadas")
+
     logger.info(f"\n=== Estadísticas por identidad ===")
     for ident in id_list[:20]:  # Mostrar primeras 20
         stats = per_id_stats[ident]
         logger.info(
-            f"{ident}: {stats['faces_used']} rostros, {stats['augmentations_used']} augment., "
-            f"{stats['total_embs']} embeddings totales "
+            f"{ident}: {stats['faces_used']} rostros usados "
             f"({stats['skipped']} imágenes omitidas)"
         )
     

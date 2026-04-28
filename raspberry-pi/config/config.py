@@ -25,7 +25,7 @@ API_TIMEOUT_SECONDS: int = int(os.getenv("API_TIMEOUT_SECONDS", "30"))
 CAMERA_INDEX: int = int(os.getenv("CAMERA_INDEX", "0"))
 
 # Configuración de reconocimiento
-RECOGNITION_THRESHOLD: float = float(os.getenv("RECOGNITION_THRESHOLD", "0.5"))
+RECOGNITION_THRESHOLD: float = float(os.getenv("RECOGNITION_THRESHOLD", "0.35"))
 FACE_DETECTION_CONFIDENCE: float = float(os.getenv("FACE_DETECTION_CONFIDENCE", "0.5"))
 
 # Configuración de video
@@ -46,8 +46,8 @@ MAX_IMAGES_PER_ID: int = int(os.getenv("MAX_IMAGES_PER_ID", "10"))
 
 # Configuración de modelos
 # RetinaFace (detección) - usando InsightFace
-RETINAFACE_MODEL_NAME: str = os.getenv("RETINAFACE_MODEL_NAME", "buffalo_s")
-RETINAFACE_DET_SIZE: tuple = tuple(map(int, os.getenv("RETINAFACE_DET_SIZE", "320,320").split(",")))
+RETINAFACE_MODEL_NAME: str = os.getenv("RETINAFACE_MODEL_NAME", "buffalo_l")
+RETINAFACE_DET_SIZE: tuple = tuple(map(int, os.getenv("RETINAFACE_DET_SIZE", "640,640").split(",")))
 
 # MobileFaceNet (reconocimiento) - usando TensorFlow/Keras
 MOBILEFACENET_MODEL_PATH: Optional[str] = os.getenv("MOBILEFACENET_MODEL_PATH", None)

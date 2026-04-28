@@ -119,7 +119,15 @@ class FaceDatabase:
         # Encontrar mejor match
         best_idx = int(np.argmax(similarities))
         best_sim = float(similarities[best_idx])
-        
+
+        logger.debug(
+            "best_sim=%.4f (threshold=%.4f, label=%s, match=%s)",
+            best_sim,
+            threshold,
+            self.labels[best_idx],
+            best_sim >= threshold,
+        )
+
         if best_sim < threshold:
             return None, best_sim
         

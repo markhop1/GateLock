@@ -93,7 +93,7 @@ class RetinaFaceDetector:
         Inicializa el detector RetinaFace.
         
         Args:
-            model_name: Nombre del modelo InsightFace (por defecto 'buffalo_s' que incluye RetinaFace)
+            model_name: Nombre del modelo InsightFace (por defecto 'buffalo_l' que incluye RetinaFace)
             det_size: Tamaño de detección (width, height). Menor tamaño = más rápido pero menos preciso
         """
         if not INSIGHTFACE_AVAILABLE:
