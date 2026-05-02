@@ -34,6 +34,51 @@ jobs:
 
       - name: SonarQube scan
         uses: sonarsource/sonarqube-scan-action@v6
+        with:
+          args: >
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarqube.tableboardquest.com
+
+      - name: Generate SonarQube report
+        if: always()
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarqube.tableboardquest.com
+          SONAR_PROJECT_KEY: GateLock
+        run: |
+          set -e
+          mkdir -p sonar-report
+
+          curl --fail --show-error --silent -u "$SONAR_TOKEN:" \
+            "$SONAR_HOST_URL/api/measures/component?component=$SONAR_PROJECT_KEY&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,ncloc,security_hotspots" \
+            -o sonar-report/measures.json
+
+          curl --fail --show-error --silent -u "$SONAR_TOKEN:" \
+            "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=$SONAR_PROJECT_KEY" \
+            -o sonar-report/quality-gate.json
+
+          QUALITY_GATE=$(jq -r '.projectStatus.status // "UNKNOWN"' sonar-report/quality-gate.json)
+
+          {
+            echo "# SonarQube Report - GateLock"
+            echo ""
+            echo "**Quality Gate:** $QUALITY_GATE"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|---|---:|"
+            jq -r '.component.measures[] | "| \(.metric) | \(.value) |"' sonar-report/measures.json
+            echo ""
+            echo "[Open project in SonarQube]($SONAR_HOST_URL/dashboard?id=$SONAR_PROJECT_KEY)"
+          } > sonar-report/sonarqube-report.md
+
+          cat sonar-report/sonarqube-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload SonarQube report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonarqube-report
+          path: sonar-report/
