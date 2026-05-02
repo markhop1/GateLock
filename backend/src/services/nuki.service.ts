@@ -38,7 +38,7 @@ export async function unlock(options?: { throwOnError?: boolean }): Promise<void
     return
   }
 
-  const smartlockId = parseInt(NUKI_SMARTLOCK_ID!, 10)
+  const smartlockId = Number.parseInt(NUKI_SMARTLOCK_ID!, 10)
   if (Number.isNaN(smartlockId)) {
     console.error('[Nuki] Invalid NUKI_SMARTLOCK_ID:', NUKI_SMARTLOCK_ID)
     if (options?.throwOnError) {
@@ -68,7 +68,7 @@ export async function lock(): Promise<void> {
     return
   }
 
-  const smartlockId = parseInt(NUKI_SMARTLOCK_ID!, 10)
+  const smartlockId = Number.parseInt(NUKI_SMARTLOCK_ID!, 10)
   if (Number.isNaN(smartlockId)) {
     console.error('[Nuki] Invalid NUKI_SMARTLOCK_ID:', NUKI_SMARTLOCK_ID)
     return
@@ -100,7 +100,7 @@ export async function getState(): Promise<LockStatusResult> {
     return { configured: false, notConfigured: true }
   }
 
-  const smartlockId = parseInt(NUKI_SMARTLOCK_ID!, 10)
+  const smartlockId = Number.parseInt(NUKI_SMARTLOCK_ID!, 10)
   if (Number.isNaN(smartlockId)) {
     return { configured: true, status: 'unavailable', error: true }
   }
@@ -109,12 +109,14 @@ export async function getState(): Promise<LockStatusResult> {
     const nuki = new Nuki(NUKI_TOKEN!)
     const lock = (await nuki.getSmartlock(smartlockId)) as Record<string, unknown>
     const stateObj = lock.state
-    const state =
-      typeof stateObj === 'object' && stateObj !== null && 'state' in stateObj
-        ? (stateObj as { state?: number }).state
-        : typeof stateObj === 'number'
-          ? stateObj
-          : lock.stateName ?? (lock.config as { state?: number } | undefined)?.state
+    let state: unknown
+    if (typeof stateObj === 'object' && stateObj !== null && 'state' in stateObj) {
+      state = (stateObj as { state?: number }).state
+    } else if (typeof stateObj === 'number') {
+      state = stateObj
+    } else {
+      state = lock.stateName ?? (lock.config as { state?: number } | undefined)?.state
+    }
     let status: LockStatus = 'unknown'
     if (typeof state === 'number') {
       if (state === 1) status = 'locked'

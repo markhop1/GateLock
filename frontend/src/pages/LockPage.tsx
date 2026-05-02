@@ -37,7 +37,8 @@ export default function LockPage() {
       setError(null)
       const status = await nukiService.getStatus()
       setLockStatus(status)
-    } catch {
+    } catch (fetchError) {
+      console.error('Error fetching lock status:', fetchError)
       setError('No se ha podido obtener el estado del candado')
       setLockStatus({ configured: true, status: 'unavailable', error: true })
     } finally {
@@ -136,11 +137,14 @@ export default function LockPage() {
     )
   }
 
+  const currentStatus: LockStatus | undefined =
+    lockStatus?.configured === true ? lockStatus.status : undefined
+  const isOpenStatus = currentStatus === 'unlocked' || currentStatus === 'unlatched'
   const notConfigured = lockStatus?.configured === false
   const canControl =
     lockStatus?.configured === true &&
-    lockStatus.status !== 'unavailable' &&
-    lockStatus.status !== 'unknown'
+    currentStatus !== 'unavailable' &&
+    currentStatus !== 'unknown'
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -179,18 +183,18 @@ export default function LockPage() {
           <div className="flex flex-col items-center gap-6">
             <div
               className={`flex items-center gap-3 px-4 py-2 rounded-lg text-lg font-medium ${
-                lockStatus!.status === 'unlocked' || lockStatus!.status === 'unlatched'
+                isOpenStatus
                   ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
                   : 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'
               }`}
             >
-              {lockStatus!.status === 'unlocked' || lockStatus!.status === 'unlatched' ? (
+              {isOpenStatus ? (
                 <LockOpenIcon className="w-8 h-8" />
               ) : (
                 <LockClosedIcon className="w-8 h-8" />
               )}
-              {lockStatus!.name && <span>{lockStatus!.name}: </span>}
-              <span>{LABELS[lockStatus!.status]}</span>
+              {lockStatus?.name && <span>{lockStatus.name}: </span>}
+              {currentStatus && <span>{LABELS[currentStatus]}</span>}
             </div>
 
             <div className="flex gap-4">

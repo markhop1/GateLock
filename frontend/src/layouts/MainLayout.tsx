@@ -16,7 +16,7 @@ import {
 } from '@heroicons/react/24/solid'
 
 interface MainLayoutProps {
-  children: ReactNode
+  readonly children: ReactNode
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {

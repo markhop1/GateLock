@@ -111,6 +111,7 @@ export default function AlertDetailPage() {
               style={{ maxHeight: '500px' }}
               title={`Clip de ${notification.personName}`}
             >
+              <track kind="captions" srcLang="es" label="Español" />
               Tu navegador no soporta la reproducción de video.
             </video>
           </div>

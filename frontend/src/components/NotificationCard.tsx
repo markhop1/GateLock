@@ -5,9 +5,9 @@ import { CheckCircleIcon, XCircleIcon, QuestionMarkCircleIcon } from '@heroicons
 import { getBackendAssetUrl } from '../services/api'
 
 interface NotificationCardProps {
-  notification: Notification
-  onAction: (id: string, action: 'accepted' | 'ignored' | 'pending' | 'unanswered') => void
-  showActions?: boolean
+  readonly notification: Notification
+  readonly onAction: (id: string, action: 'accepted' | 'ignored' | 'pending' | 'unanswered') => void
+  readonly showActions?: boolean
 }
 
 export default function NotificationCard({
@@ -76,6 +76,7 @@ export default function NotificationCard({
             style={{ maxHeight: '300px' }}
             title={`Video de ${notification.personName}`}
           >
+            <track kind="captions" srcLang="es" label="Español" />
             Tu navegador no soporta la reproducción de video.
           </video>
         </div>

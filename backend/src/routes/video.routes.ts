@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import multer from 'multer'
-import path from 'path'
+import path from 'node:path'
 import { uploadVideo } from '../controllers/video.controller.js'
 import { authenticate } from '../middleware/auth.middleware.js'
 

@@ -91,12 +91,18 @@ export default function HomePage() {
       })
     }
 
-    window.simulateNotification = simulateNotificationFn
+    ;(
+      globalThis as typeof globalThis & {
+        simulateNotification?: typeof simulateNotificationFn
+      }
+    ).simulateNotification = simulateNotificationFn
 
     return () => {
-      if ('simulateNotification' in window) {
-        delete (window as { simulateNotification?: typeof simulateNotificationFn }).simulateNotification
-      }
+      delete (
+        globalThis as typeof globalThis & {
+          simulateNotification?: typeof simulateNotificationFn
+        }
+      ).simulateNotification
     }
   }, [addNotification])
 

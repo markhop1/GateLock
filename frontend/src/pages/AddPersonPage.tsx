@@ -106,6 +106,151 @@ export default function AddPersonPage() {
     }
   }
 
+  let content
+  if (loading && !persons.length) {
+    content = (
+      <div className="p-12 text-center">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <p className="mt-4 text-gray-600 dark:text-gray-400">
+          Cargando personas...
+        </p>
+      </div>
+    )
+  } else if (persons.length === 0) {
+    content = (
+      <div className="p-12 text-center">
+        <UserIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          No hay personas registradas
+        </h3>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">
+          Añade tu primera persona para comenzar
+        </p>
+        <button
+          onClick={() => {
+            setShowAddForm(true)
+            setNewName('')
+            setFormError('')
+          }}
+          className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md transition-colors inline-flex items-center gap-2"
+        >
+          <UserPlusIcon className="w-5 h-5" />
+          Añadir Primera Persona
+        </button>
+      </div>
+    )
+  } else {
+    content = (
+      <div className="divide-y divide-gray-200 dark:divide-gray-700">
+        {persons.map((person) => (
+          <div
+            key={person.id}
+            className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4 flex-1">
+                {/* Avatar */}
+                {person.photoUrl ? (
+                  <img
+                    src={person.photoUrl}
+                    alt={person.name}
+                    className="w-12 h-12 rounded-full object-cover"
+                    onError={(e) => {
+                      ;(e.target as HTMLImageElement).style.display = 'none'
+                    }}
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
+                    <UserIcon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+                  </div>
+                )}
+
+                {/* Name editing or display */}
+                {editingId === person.id ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="text"
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleUpdateName(person.id)
+                        } else if (e.key === 'Escape') {
+                          cancelEditing()
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      autoFocus
+                    />
+                    {formError && editingId === person.id && (
+                      <span className="text-sm text-red-600 dark:text-red-400">
+                        {formError}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {person.name}
+                    </h3>
+                    {person.email && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {person.email}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      Añadida el {format(person.createdAt, 'dd/MM/yyyy')}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 ml-4">
+                {editingId === person.id ? (
+                  <>
+                    <button
+                      onClick={() => handleUpdateName(person.id)}
+                      disabled={loading}
+                      className="p-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-colors disabled:opacity-50"
+                      title="Guardar cambios"
+                    >
+                      <CheckIcon className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={cancelEditing}
+                      className="p-2 text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                      title="Cancelar"
+                    >
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => startEditing(person)}
+                      className="p-2 text-gray-600 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 transition-colors"
+                      title="Editar nombre"
+                    >
+                      <PencilIcon className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirmId(person.id)}
+                      className="p-2 text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                      title="Eliminar persona"
+                    >
+                      <TrashIcon className="w-5 h-5" />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
@@ -211,143 +356,7 @@ export default function AddPersonPage() {
           </h2>
         </div>
 
-        {loading && !persons.length ? (
-          <div className="p-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">
-              Cargando personas...
-            </p>
-          </div>
-        ) : persons.length === 0 ? (
-          <div className="p-12 text-center">
-            <UserIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              No hay personas registradas
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
-              Añade tu primera persona para comenzar
-            </p>
-            <button
-              onClick={() => {
-                setShowAddForm(true)
-                setNewName('')
-                setFormError('')
-              }}
-              className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md transition-colors inline-flex items-center gap-2"
-            >
-              <UserPlusIcon className="w-5 h-5" />
-              Añadir Primera Persona
-            </button>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {persons.map((person) => (
-              <div
-                key={person.id}
-                className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 flex-1">
-                    {/* Avatar */}
-                    {person.photoUrl ? (
-                      <img
-                        src={person.photoUrl}
-                        alt={person.name}
-                        className="w-12 h-12 rounded-full object-cover"
-                        onError={(e) => {
-                          ;(e.target as HTMLImageElement).style.display = 'none'
-                        }}
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
-                        <UserIcon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
-                      </div>
-                    )}
-
-                    {/* Name editing or display */}
-                    {editingId === person.id ? (
-                      <div className="flex items-center gap-2 flex-1">
-                        <input
-                          type="text"
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleUpdateName(person.id)
-                            } else if (e.key === 'Escape') {
-                              cancelEditing()
-                            }
-                          }}
-                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                          autoFocus
-                        />
-                        {formError && editingId === person.id && (
-                          <span className="text-sm text-red-600 dark:text-red-400">
-                            {formError}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                          {person.name}
-                        </h3>
-                        {person.email && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {person.email}
-                          </p>
-                        )}
-                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                          Añadida el {format(person.createdAt, 'dd/MM/yyyy')}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 ml-4">
-                    {editingId === person.id ? (
-                      <>
-                        <button
-                          onClick={() => handleUpdateName(person.id)}
-                          disabled={loading}
-                          className="p-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-colors disabled:opacity-50"
-                          title="Guardar cambios"
-                        >
-                          <CheckIcon className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={cancelEditing}
-                          className="p-2 text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-                          title="Cancelar"
-                        >
-                          <XMarkIcon className="w-5 h-5" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => startEditing(person)}
-                          className="p-2 text-gray-600 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 transition-colors"
-                          title="Editar nombre"
-                        >
-                          <PencilIcon className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirmId(person.id)}
-                          className="p-2 text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
-                          title="Eliminar persona"
-                        >
-                          <TrashIcon className="w-5 h-5" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {content}
       </div>
 
       {/* Delete Confirmation Modal */}
@@ -362,7 +371,7 @@ export default function AddPersonPage() {
               <strong>
                 {persons.find((p) => p.id === deleteConfirmId)?.name}
               </strong>
-              ? Esta acción no se puede deshacer.
+              {' '}? Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-4">
               <button

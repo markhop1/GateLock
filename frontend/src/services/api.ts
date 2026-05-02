@@ -49,7 +49,7 @@ api.interceptors.response.use(
       // Skip redirect for login/register - let the page show the error message
       if (!reqUrl.includes('/auth/login') && !reqUrl.includes('/auth/register')) {
         localStorage.removeItem('auth-storage')
-        window.location.href = '/login'
+          globalThis.location.href = '/login'
       }
     }
     return Promise.reject(error)

@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
-import path from 'path'
+import path from 'node:path'
 import { connectDB } from './config/database.js'
 import authRoutes from './routes/auth.routes.js'
 import personRoutes from './routes/person.routes.js'

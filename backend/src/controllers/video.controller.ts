@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express'
 import { AuthRequest } from '../middleware/auth.middleware.js'
-import path from 'path'
-import fs from 'fs/promises'
+import path from 'node:path'
+import fs from 'node:fs/promises'
 import { v4 as uuidv4 } from 'uuid'
 import { isR2Configured, uploadToR2 } from '../services/r2.service.js'
 
@@ -9,9 +9,7 @@ const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'videos')
 const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100 MB
 
 // Asegurar que el directorio de uploads existe (para modo local)
-fs.mkdir(UPLOAD_DIR, { recursive: true }).catch(() => {
-  // Ignore errors if already exists
-})
+await fs.mkdir(UPLOAD_DIR, { recursive: true })
 
 export const uploadVideo = async (
   req: AuthRequest,

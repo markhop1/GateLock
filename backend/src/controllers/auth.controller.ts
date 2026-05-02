@@ -72,7 +72,12 @@ export const register = async (
     })
   } catch (error: unknown) {
     // Handle mongoose validation errors
-    if (error && typeof error === 'object' && 'name' in error && error.name === 'ValidationError' && 'errors' in error) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      (error as { name?: string }).name === 'ValidationError' &&
+      'errors' in error
+    ) {
       const validationError = error as { errors: Record<string, { message: string }> }
       const messages = Object.values(validationError.errors).map((err) => err.message)
       res.status(400).json({ error: messages.join(', ') })
@@ -80,7 +85,11 @@ export const register = async (
     }
     
     // Handle duplicate key error (email already exists)
-    if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      (error as { code?: number }).code === 11000
+    ) {
       res.status(400).json({ error: 'A user with this email already exists' })
       return
     }

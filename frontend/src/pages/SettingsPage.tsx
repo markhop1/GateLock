@@ -1,6 +1,6 @@
 import { useAuthStore } from '../store/authStore'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRightOnRectangleIcon, UserIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftStartOnRectangleIcon, UserIcon } from '@heroicons/react/24/outline'
 
 export default function SettingsPage() {
   const { user, logout } = useAuthStore()
@@ -69,7 +69,7 @@ export default function SettingsPage() {
               onClick={handleLogout}
               className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
             >
-              <ArrowRightOnRectangleIcon className="w-5 h-5" />
+              <ArrowLeftStartOnRectangleIcon className="w-5 h-5" />
               Cerrar sesión
             </button>
           </div>
