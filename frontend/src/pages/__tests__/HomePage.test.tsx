@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import HomePage from '../HomePage'
 import { useNotificationStore } from '../../store/notificationStore'
 import { nukiService } from '../../services/nuki.service'
@@ -17,11 +17,21 @@ describe('HomePage', () => {
   const mockUpdateNotificationStatus = vi.fn()
   const mockCheckExpiredNotifications = vi.fn()
   const mockAddNotification = vi.fn()
+  let mockNotifications: Array<{
+    id: string
+    personId: string
+    personName: string
+    videoUrl: string
+    message: string
+    status: 'pending'
+    timestamp: Date
+  }>
 
   beforeEach(() => {
+    mockNotifications = []
     vi.mocked(useNotificationStore).mockImplementation((selector) => {
       const state = {
-        notifications: [],
+        notifications: mockNotifications,
         fetchNotifications: mockFetchNotifications,
         updateNotificationStatus: mockUpdateNotificationStatus,
         checkExpiredNotifications: mockCheckExpiredNotifications,
@@ -36,28 +46,35 @@ describe('HomePage', () => {
     })
   })
 
-  it('renders title and description', () => {
+  const renderHome = async () => {
     render(<HomePage />)
+    await waitFor(() => {
+      expect(nukiService.getStatus).toHaveBeenCalled()
+    })
+  }
 
-    expect(screen.getByRole('heading', { name: /notificaciones/i })).toBeInTheDocument()
+  it('renders title and description', async () => {
+    await renderHome()
+
+    expect(screen.getByRole('heading', { level: 1, name: /notificaciones/i })).toBeInTheDocument()
     expect(screen.getByText(/gestiona las solicitudes de acceso/i)).toBeInTheDocument()
     // Tip is only shown in dev mode (import.meta.env.DEV)
   })
 
-  it('calls fetchNotifications on mount', () => {
-    render(<HomePage />)
+  it('calls fetchNotifications on mount', async () => {
+    await renderHome()
 
     expect(mockFetchNotifications).toHaveBeenCalled()
   })
 
-  it('shows empty state when no pending notifications', () => {
-    render(<HomePage />)
+  it('shows empty state when no pending notifications', async () => {
+    await renderHome()
 
     expect(screen.getByText(/no hay notificaciones pendientes/i)).toBeInTheDocument()
     expect(screen.getByText(/las nuevas solicitudes de acceso aparecerán aquí/i)).toBeInTheDocument()
   })
 
-  it('renders NotificationCards when there are pending notifications', () => {
+  it('renders NotificationCards when there are pending notifications', async () => {
     const mockNotification = {
       id: 'n1',
       personId: 'p1',
@@ -67,9 +84,10 @@ describe('HomePage', () => {
       status: 'pending' as const,
       timestamp: new Date('2025-01-01T12:00:00'),
     }
+    mockNotifications = [mockNotification]
     vi.mocked(useNotificationStore).mockImplementation((selector) => {
       const state = {
-        notifications: [mockNotification],
+        notifications: mockNotifications,
         fetchNotifications: mockFetchNotifications,
         updateNotificationStatus: mockUpdateNotificationStatus,
         checkExpiredNotifications: mockCheckExpiredNotifications,
@@ -78,10 +96,10 @@ describe('HomePage', () => {
       return selector ? selector(state) : state
     })
 
-    render(<HomePage />)
+    await renderHome()
 
-    expect(screen.getByText('Juan Pérez')).toBeInTheDocument()
-    expect(screen.getByText(/quiere acceder/i)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /juan pérez/i })).toBeInTheDocument()
+    expect(screen.getAllByText(/quiere acceder/i).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /abrir/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /ignorar/i })).toBeInTheDocument()
   })

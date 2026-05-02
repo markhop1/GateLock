@@ -1,0 +1,39 @@
+name: SonarQube Analysis
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  sonarqube:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install monorepo dependencies
+        run: npm ci
+
+      - name: Run backend tests with coverage
+        run: npm run test:coverage --workspace=backend -- --pool=forks --coverage.reporter=text-summary --coverage.reporter=lcov
+
+      - name: Run frontend tests with coverage
+        run: npm run test:coverage --workspace=frontend -- --pool=forks --poolOptions.forks.singleFork --coverage.reporter=text-summary --coverage.reporter=lcov
+
+      - name: SonarQube scan
+        uses: sonarsource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarqube.tableboardquest.com

@@ -54,6 +54,7 @@ describe('LoginPage', () => {
   it('shows error message on login failure', async () => {
     const user = userEvent.setup()
     const errorMessage = 'Invalid credentials'
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     
     // Reset mock before each test
     mockLogin.mockReset()
@@ -83,6 +84,7 @@ describe('LoginPage', () => {
     
     // Verify login was called
     expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'wrong-password')
+    consoleErrorSpy.mockRestore()
   })
 
   it('navigates to home on successful login', async () => {

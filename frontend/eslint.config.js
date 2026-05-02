@@ -32,6 +32,6 @@ export default [
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**', '.eslintrc.cjs', 'coverage/**', '**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', '**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
   },
 ]
