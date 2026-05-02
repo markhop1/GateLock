@@ -4,7 +4,6 @@ import {
   LockOpenIcon,
   ExclamationTriangleIcon,
   ArrowPathIcon,
-  InformationCircleIcon,
   CheckCircleIcon,
 } from '@heroicons/react/24/outline'
 import { nukiService, type LockStatus } from '../services/nuki.service'
@@ -38,7 +37,7 @@ export default function LockPage() {
       setError(null)
       const status = await nukiService.getStatus()
       setLockStatus(status)
-    } catch (err) {
+    } catch {
       setError('No se ha podido obtener el estado del candado')
       setLockStatus({ configured: true, status: 'unavailable', error: true })
     } finally {
