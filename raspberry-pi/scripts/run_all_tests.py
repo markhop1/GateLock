@@ -48,12 +48,6 @@ TESTS = [
         'category': 'unit'
     },
     {
-        'name': 'Augmentation',
-        'script': 'tests/unit/test_augmentation.py',
-        'requires': [],
-        'category': 'unit'
-    },
-    {
         'name': 'Utils',
         'script': 'tests/unit/test_utils.py',
         'requires': [],
@@ -68,7 +62,7 @@ TESTS = [
     {
         'name': 'Build Database',
         'script': 'tests/test_build_database.py',
-        'requires': [],
+        'requires': ['insightface'],
         'category': 'integration'
     },
     {

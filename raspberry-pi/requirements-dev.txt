@@ -1,3 +1,6 @@
+# Include runtime dependencies required by tests (e.g. cv2, numpy, insightface).
+-r requirements.txt
+
 # Testing dependencies
 pytest>=7.4.0
 tensorflow-datasets>=4.9.0  # For download_lfw_fixtures.py (LFW face images)

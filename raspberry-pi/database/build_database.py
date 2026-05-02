@@ -50,6 +50,7 @@ def l2_normalize(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
 # favor de usar directamente el embedding de la detección original.
 #
 # def build_augmenter():
+#     """Construye un pipeline de augmentación para tests y experimentación."""
 #     return A.Compose(
 #         [
 #             A.RandomBrightnessContrast(brightness_limit=0.35, contrast_limit=0.25, p=0.9),
@@ -66,6 +67,7 @@ def l2_normalize(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
 #             A.ImageCompression(quality_range=(35, 95), compression_type="jpeg", p=0.25),
 #         ]
 #     )
+#
 #
 # def quality_gate(face_rgb: np.ndarray) -> bool:
 #     """Filtra rostros demasiado oscuros o sobreexpuestos."""
@@ -117,6 +119,12 @@ def main():
         type=int,
         default=MAX_IMAGES_PER_ID,
         help="Máximo número de imágenes base por identidad"
+    )
+    parser.add_argument(
+        "--aug_per_image",
+        type=int,
+        default=0,
+        help="Compatibilidad retroactiva: reservado, actualmente sin uso"
     )
     parser.add_argument(
         "--output_dir",
