@@ -31,8 +31,8 @@ describe('LockPage', () => {
 
     render(<LockPage />)
 
-    const errorMessages = await screen.findAllByText(/no se ha podido obtener el estado del candado/i)
-    expect(errorMessages.length).toBeGreaterThan(0)
+    const errorMessage = await screen.findByText(/sin comunicación con el candado/i)
+    expect(errorMessage).toBeInTheDocument()
     consoleSpy.mockRestore()
   })
 
