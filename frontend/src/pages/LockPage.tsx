@@ -39,7 +39,6 @@ export default function LockPage() {
       setLockStatus(status)
     } catch (fetchError) {
       console.error('Error fetching lock status:', fetchError)
-      setError('No se ha podido obtener el estado del candado')
       setLockStatus({ configured: true, status: 'unavailable', error: true })
     } finally {
       setLoading(false)
@@ -169,6 +168,31 @@ export default function LockPage() {
         </div>
       )}
 
+      {lockStatus?.configured === true && lockStatus.error === true && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-red-200 dark:border-red-800 mb-6">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30">
+              <ExclamationTriangleIcon className="w-8 h-8 text-red-500 dark:text-red-400" />
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                Sin comunicación con el candado
+              </p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                No se puede obtener el estado actual. Comprueba la conexión con Nuki Web.
+              </p>
+            </div>
+            <button
+              onClick={fetchStatus}
+              className="flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+            >
+              <ArrowPathIcon className="w-4 h-4" />
+              Reintentar
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
           <p className="text-sm text-red-800 dark:text-red-300 flex items-center gap-2">
@@ -251,10 +275,11 @@ export default function LockPage() {
       )}
 
       {lockStatus?.configured === true &&
+        !lockStatus.error &&
         (lockStatus.status === 'unavailable' || lockStatus.status === 'unknown') && (
           <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
             <p className="text-sm text-orange-800 dark:text-orange-300">
-              No se ha podido obtener el estado del candado. Comprueba la conexión con Nuki Web.
+              El candado está temporalmente no disponible. Comprueba la conexión con Nuki Web.
             </p>
             <button
               onClick={fetchStatus}
