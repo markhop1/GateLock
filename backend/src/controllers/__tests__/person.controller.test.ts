@@ -222,6 +222,38 @@ describe('Person Controller', () => {
       )
       expect(mockNext).not.toHaveBeenCalled()
     })
+
+    it('should not update alerts when trimmed name does not change', async () => {
+      mockReq.params = { id: '507f1f77bcf86cd799439011' }
+      mockReq.body = { name: '  Old Name  ' }
+      const person = {
+        _id: { toString: () => '507f1f77bcf86cd799439011' },
+        name: 'Old Name',
+        email: 'test@test.com',
+        photoUrl: undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        save: vi.fn().mockResolvedValue(undefined),
+      }
+      vi.mocked(Person.findOne).mockResolvedValue(person as never)
+
+      await updatePerson(mockReq as AuthRequest, mockRes as Response, mockNext)
+
+      expect(Alert.updateMany).not.toHaveBeenCalled()
+      expect(person.save).toHaveBeenCalledTimes(1)
+      expect(mockNext).not.toHaveBeenCalled()
+    })
+
+    it('should forward errors to next when update fails', async () => {
+      mockReq.params = { id: '507f1f77bcf86cd799439011' }
+      mockReq.body = { name: 'Updated Name' }
+      const error = new Error('db error')
+      vi.mocked(Person.findOne).mockRejectedValue(error)
+
+      await updatePerson(mockReq as AuthRequest, mockRes as Response, mockNext)
+
+      expect(mockNext).toHaveBeenCalledWith(error)
+    })
   })
 
   describe('deletePerson', () => {
@@ -249,6 +281,57 @@ describe('Person Controller', () => {
         message: 'Person deleted successfully',
       })
       expect(mockNext).not.toHaveBeenCalled()
+    })
+
+    it('should forward errors to next when delete fails', async () => {
+      mockReq.params = { id: '507f1f77bcf86cd799439011' }
+      const error = new Error('delete failed')
+      vi.mocked(Person.findOneAndDelete).mockRejectedValue(error)
+
+      await deletePerson(mockReq as AuthRequest, mockRes as Response, mockNext)
+
+      expect(mockNext).toHaveBeenCalledWith(error)
+    })
+  })
+
+  describe('error forwarding', () => {
+    it('should forward errors from createPerson', async () => {
+      mockReq.body = { name: 'Juan' }
+      const error = new Error('create failed')
+      const personInstance = {
+        _id: { toString: () => '507f1f77bcf86cd799439011' },
+        name: 'Juan',
+        email: undefined,
+        photoUrl: undefined,
+        createdAt: new Date(),
+        save: vi.fn().mockRejectedValue(error),
+      }
+      vi.mocked(Person).mockImplementation(() => personInstance as never)
+
+      await createPerson(mockReq as AuthRequest, mockRes as Response, mockNext)
+
+      expect(mockNext).toHaveBeenCalledWith(error)
+    })
+
+    it('should forward errors from getPersons', async () => {
+      const error = new Error('get failed')
+      vi.mocked(Person.find).mockReturnValue({
+        sort: vi.fn().mockRejectedValue(error),
+      } as never)
+
+      await getPersons(mockReq as AuthRequest, mockRes as Response, mockNext)
+
+      expect(mockNext).toHaveBeenCalledWith(error)
+    })
+
+    it('should forward errors from getPersonById', async () => {
+      mockReq.params = { id: '507f1f77bcf86cd799439011' }
+      const error = new Error('find failed')
+      vi.mocked(Person.findOne).mockRejectedValue(error)
+
+      await getPersonById(mockReq as AuthRequest, mockRes as Response, mockNext)
+
+      expect(mockNext).toHaveBeenCalledWith(error)
     })
   })
 })

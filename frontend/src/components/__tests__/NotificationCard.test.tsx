@@ -50,6 +50,22 @@ describe('NotificationCard', () => {
     expect(screen.getByText(/aceptada/i)).toBeInTheDocument()
   })
 
+  it('shows ignored status text', () => {
+    const ignoredNotification = { ...mockNotification, status: 'ignored' as const }
+    const onAction = vi.fn()
+    render(<NotificationCard notification={ignoredNotification} onAction={onAction} />)
+
+    expect(screen.getByText(/ignorada/i)).toBeInTheDocument()
+  })
+
+  it('shows unanswered status text', () => {
+    const unansweredNotification = { ...mockNotification, status: 'unanswered' as const }
+    const onAction = vi.fn()
+    render(<NotificationCard notification={unansweredNotification} onAction={onAction} />)
+
+    expect(screen.getByText(/no respondida/i)).toBeInTheDocument()
+  })
+
   it('does not show action buttons when showActions is false', () => {
     const onAction = vi.fn()
     render(

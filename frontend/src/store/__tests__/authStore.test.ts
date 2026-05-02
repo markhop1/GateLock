@@ -89,4 +89,61 @@ describe('Auth Store', () => {
       expect(state.isAuthenticated).toBe(false)
     })
   })
+
+  describe('register', () => {
+    it('should set user and token on successful register', async () => {
+      const mockResponse = {
+        token: 'register-token',
+        user: {
+          id: '2',
+          email: 'new@example.com',
+          name: 'New User',
+        },
+      }
+
+      vi.mocked(authService.register).mockResolvedValue(mockResponse)
+
+      await useAuthStore.getState().register('new@example.com', 'password123', 'New User')
+
+      const state = useAuthStore.getState()
+      expect(state.user).toEqual(mockResponse.user)
+      expect(state.token).toBe(mockResponse.token)
+      expect(state.isAuthenticated).toBe(true)
+    })
+  })
+
+  describe('checkAuth', () => {
+    it('should keep user authenticated when getMe succeeds', async () => {
+      const user = {
+        id: '1',
+        email: 'test@example.com',
+        name: 'Test User',
+      }
+
+      vi.mocked(authService.getMe).mockResolvedValue({ user })
+
+      await useAuthStore.getState().checkAuth()
+
+      const state = useAuthStore.getState()
+      expect(state.user).toEqual(user)
+      expect(state.isAuthenticated).toBe(true)
+    })
+
+    it('should reset auth state when getMe fails', async () => {
+      useAuthStore.setState({
+        user: { id: '1', email: 'test@example.com', name: 'Test User' },
+        token: 'token',
+        isAuthenticated: true,
+      })
+
+      vi.mocked(authService.getMe).mockRejectedValue(new Error('Unauthorized'))
+
+      await useAuthStore.getState().checkAuth()
+
+      const state = useAuthStore.getState()
+      expect(state.user).toBeNull()
+      expect(state.token).toBeNull()
+      expect(state.isAuthenticated).toBe(false)
+    })
+  })
 })

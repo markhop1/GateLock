@@ -33,6 +33,7 @@ jobs:
         run: npm run test:coverage --workspace=frontend -- --pool=forks --poolOptions.forks.singleFork --coverage.reporter=text-summary --coverage.reporter=lcov
 
       - name: SonarQube scan
+        continue-on-error: true
         uses: sonarsource/sonarqube-scan-action@v6
         with:
           args: >
@@ -61,11 +62,17 @@ jobs:
             -o sonar-report/quality-gate.json
 
           QUALITY_GATE=$(jq -r '.projectStatus.status // "UNKNOWN"' sonar-report/quality-gate.json)
+          FAILING_CONDITIONS=$(jq -r '.projectStatus.conditions[]? | select(.status == "ERROR") | "- " + .metricKey + ": actual=" + (.actualValue // "n/a") + ", threshold=" + (.errorThreshold // "n/a") + ", op=" + (.comparator // "n/a")' sonar-report/quality-gate.json)
 
           {
             echo "# SonarQube Report - GateLock"
             echo ""
             echo "**Quality Gate:** $QUALITY_GATE"
+            if [ -n "$FAILING_CONDITIONS" ]; then
+              echo ""
+              echo "## Failing Conditions"
+              echo "$FAILING_CONDITIONS"
+            fi
             echo ""
             echo "| Metric | Value |"
             echo "|---|---:|"
@@ -75,6 +82,16 @@ jobs:
           } > sonar-report/sonarqube-report.md
 
           cat sonar-report/sonarqube-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce Quality Gate
+        if: always()
+        run: |
+          QUALITY_GATE=$(jq -r '.projectStatus.status // "UNKNOWN"' sonar-report/quality-gate.json)
+          if [ "$QUALITY_GATE" != "OK" ]; then
+            echo "Quality Gate failed: $QUALITY_GATE"
+            jq -r '.projectStatus.conditions[]? | select(.status == "ERROR") | "- " + .metricKey + ": actual=" + (.actualValue // "n/a") + ", threshold=" + (.errorThreshold // "n/a") + ", op=" + (.comparator // "n/a")' sonar-report/quality-gate.json
+            exit 1
+          fi
 
       - name: Upload SonarQube report
         if: always()

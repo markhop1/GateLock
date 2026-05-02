@@ -103,4 +103,92 @@ describe('HomePage', () => {
     expect(screen.getByRole('button', { name: /abrir/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /ignorar/i })).toBeInTheDocument()
   })
+
+  it('shows notice when lock is not configured', async () => {
+    vi.mocked(nukiService.getStatus).mockResolvedValue({
+      configured: false,
+      notConfigured: true,
+    })
+
+    await renderHome()
+
+    expect(screen.getByText(/candado no configurado/i)).toBeInTheDocument()
+  })
+
+  it('shows connection notice when lock status is unavailable', async () => {
+    vi.mocked(nukiService.getStatus).mockResolvedValue({
+      configured: true,
+      status: 'unavailable',
+      error: true,
+    })
+
+    await renderHome()
+
+    expect(screen.getByText(/no se ha podido obtener el estado del candado/i)).toBeInTheDocument()
+  })
+
+  it('handles accepted notification action and refreshes data', async () => {
+    const mockNotification = {
+      id: 'n1',
+      personId: 'p1',
+      personName: 'Juan Pérez',
+      videoUrl: '/videos/1.mp4',
+      message: 'Quiere acceder',
+      status: 'pending' as const,
+      timestamp: new Date('2025-01-01T12:00:00'),
+    }
+    mockNotifications = [mockNotification]
+    vi.mocked(useNotificationStore).mockImplementation((selector) => {
+      const state = {
+        notifications: mockNotifications,
+        fetchNotifications: mockFetchNotifications,
+        updateNotificationStatus: mockUpdateNotificationStatus,
+        checkExpiredNotifications: mockCheckExpiredNotifications,
+        addNotification: mockAddNotification,
+      }
+      return selector ? selector(state) : state
+    })
+
+    await renderHome()
+
+    const abrirButton = await screen.findByRole('button', { name: /abrir/i })
+    abrirButton.click()
+
+    await waitFor(() => {
+      expect(mockUpdateNotificationStatus).toHaveBeenCalledWith('n1', 'accepted')
+      expect(mockFetchNotifications).toHaveBeenCalled()
+    })
+  })
+
+  it('handles ignored notification action', async () => {
+    const mockNotification = {
+      id: 'n1',
+      personId: 'p1',
+      personName: 'Juan Pérez',
+      videoUrl: '/videos/1.mp4',
+      message: 'Quiere acceder',
+      status: 'pending' as const,
+      timestamp: new Date('2025-01-01T12:00:00'),
+    }
+    mockNotifications = [mockNotification]
+    vi.mocked(useNotificationStore).mockImplementation((selector) => {
+      const state = {
+        notifications: mockNotifications,
+        fetchNotifications: mockFetchNotifications,
+        updateNotificationStatus: mockUpdateNotificationStatus,
+        checkExpiredNotifications: mockCheckExpiredNotifications,
+        addNotification: mockAddNotification,
+      }
+      return selector ? selector(state) : state
+    })
+
+    await renderHome()
+
+    const ignoreButton = await screen.findByRole('button', { name: /ignorar/i })
+    ignoreButton.click()
+
+    await waitFor(() => {
+      expect(mockUpdateNotificationStatus).toHaveBeenCalledWith('n1', 'ignored')
+    })
+  })
 })

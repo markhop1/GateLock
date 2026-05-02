@@ -50,6 +50,25 @@ describe('Notification Store', () => {
       expect(state.notifications[0].personName).toBe('Test Person')
       expect(state.loading).toBe(false)
     })
+
+    it('should set error and rethrow on create failure', async () => {
+      const error = new Error('create failed')
+      vi.mocked(alertService.create).mockRejectedValue(error)
+
+      await expect(
+        useNotificationStore.getState().addNotification({
+          personId: 'person-1',
+          personName: 'Test Person',
+          videoUrl: 'https://example.com/video.mp4',
+          message: 'Test message',
+          status: 'pending',
+        })
+      ).rejects.toThrow('create failed')
+
+      const state = useNotificationStore.getState()
+      expect(state.error).toBeTruthy()
+      expect(state.loading).toBe(false)
+    })
   })
 
   describe('updateNotificationStatus', () => {
@@ -87,6 +106,53 @@ describe('Notification Store', () => {
       const state = useNotificationStore.getState()
       expect(state.notifications[0].status).toBe('accepted')
     })
+
+    it('should update notification status locally for unanswered', async () => {
+      const notification = {
+        id: '1',
+        personId: 'person-1',
+        personName: 'Test Person',
+        videoUrl: 'https://example.com/video.mp4',
+        message: 'Test message',
+        status: 'pending' as const,
+        timestamp: new Date('2024-01-01T00:00:00Z'),
+      }
+
+      useNotificationStore.setState({
+        notifications: [notification],
+      })
+
+      await useNotificationStore.getState().updateNotificationStatus('1', 'unanswered')
+
+      const state = useNotificationStore.getState()
+      expect(state.notifications[0].status).toBe('unanswered')
+      expect(state.notifications[0].decisionTimestamp).toBeInstanceOf(Date)
+    })
+
+    it('should set error and rethrow when update fails', async () => {
+      const notification = {
+        id: '1',
+        personId: 'person-1',
+        personName: 'Test Person',
+        videoUrl: 'https://example.com/video.mp4',
+        message: 'Test message',
+        status: 'pending' as const,
+        timestamp: new Date('2024-01-01T00:00:00Z'),
+      }
+
+      useNotificationStore.setState({
+        notifications: [notification],
+      })
+
+      vi.mocked(alertService.updateStatus).mockRejectedValue(new Error('update failed'))
+
+      await expect(
+        useNotificationStore.getState().updateNotificationStatus('1', 'accepted')
+      ).rejects.toThrow('update failed')
+
+      const state = useNotificationStore.getState()
+      expect(state.error).toBeTruthy()
+    })
   })
 
   describe('fetchNotifications', () => {
@@ -118,6 +184,16 @@ describe('Notification Store', () => {
 
       const state = useNotificationStore.getState()
       expect(state.notifications).toHaveLength(2)
+      expect(state.loading).toBe(false)
+    })
+
+    it('should set error when fetch fails', async () => {
+      vi.mocked(alertService.getAll).mockRejectedValue(new Error('fetch failed'))
+
+      await useNotificationStore.getState().fetchNotifications()
+
+      const state = useNotificationStore.getState()
+      expect(state.error).toBeTruthy()
       expect(state.loading).toBe(false)
     })
   })
@@ -169,6 +245,72 @@ describe('Notification Store', () => {
 
       const state = useNotificationStore.getState()
       expect(state.notifications[0].status).toBe('pending')
+    })
+
+    it('should keep already processed notifications unchanged', () => {
+      const notification = {
+        id: '1',
+        personId: 'person-1',
+        personName: 'Test Person',
+        videoUrl: 'https://example.com/video.mp4',
+        message: 'Test message',
+        status: 'accepted' as const,
+        timestamp: new Date('2024-01-01T00:00:00Z'),
+      }
+
+      useNotificationStore.setState({
+        notifications: [notification],
+      })
+
+      useNotificationStore.getState().checkExpiredNotifications()
+
+      const state = useNotificationStore.getState()
+      expect(state.notifications[0].status).toBe('accepted')
+    })
+  })
+
+  describe('selectors and clear', () => {
+    it('should return notification by id', () => {
+      const notification = {
+        id: 'abc',
+        personId: 'person-1',
+        personName: 'Test Person',
+        videoUrl: 'https://example.com/video.mp4',
+        message: 'Test message',
+        status: 'pending' as const,
+        timestamp: new Date('2024-01-01T00:00:00Z'),
+      }
+
+      useNotificationStore.setState({ notifications: [notification] })
+
+      const found = useNotificationStore.getState().getNotificationById('abc')
+      const missing = useNotificationStore.getState().getNotificationById('missing')
+
+      expect(found?.id).toBe('abc')
+      expect(missing).toBeUndefined()
+    })
+
+    it('should clear notifications and error', () => {
+      useNotificationStore.setState({
+        notifications: [
+          {
+            id: '1',
+            personId: 'person-1',
+            personName: 'Test Person',
+            videoUrl: 'https://example.com/video.mp4',
+            message: 'Test message',
+            status: 'pending',
+            timestamp: new Date('2024-01-01T00:00:00Z'),
+          },
+        ],
+        error: 'some error',
+      })
+
+      useNotificationStore.getState().clearNotifications()
+
+      const state = useNotificationStore.getState()
+      expect(state.notifications).toEqual([])
+      expect(state.error).toBeNull()
     })
   })
 })

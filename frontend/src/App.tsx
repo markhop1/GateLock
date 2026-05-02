@@ -7,7 +7,6 @@ import RegisterPage from './pages/RegisterPage'
 import MainLayout from './layouts/MainLayout'
 import HomePage from './pages/HomePage'
 import HistoryPage from './pages/HistoryPage'
-import AddPersonPage from './pages/AddPersonPage'
 import LockPage from './pages/LockPage'
 import SettingsPage from './pages/SettingsPage'
 import AlertDetailPage from './pages/AlertDetailPage'
@@ -65,18 +64,6 @@ function App() {
           isAuthenticated ? (
             <MainLayout>
               <AlertDetailPage />
-            </MainLayout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/access"
-        element={
-          isAuthenticated ? (
-            <MainLayout>
-              <AddPersonPage />
             </MainLayout>
           ) : (
             <Navigate to="/login" replace />

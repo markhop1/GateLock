@@ -86,6 +86,25 @@ describe('Person Store', () => {
       const state = usePersonStore.getState()
       expect(state.persons[0].name).toBe('Updated Name')
     })
+
+    it('should set error and rethrow when update fails', async () => {
+      const initialPerson = {
+        id: '1',
+        name: 'Original Name',
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+      }
+      usePersonStore.setState({ persons: [initialPerson] })
+
+      vi.mocked(personService.update).mockRejectedValue(new Error('update failed'))
+
+      await expect(
+        usePersonStore.getState().updatePerson('1', { name: 'Updated Name' })
+      ).rejects.toThrow('update failed')
+
+      const state = usePersonStore.getState()
+      expect(state.error).toBeTruthy()
+      expect(state.loading).toBe(false)
+    })
   })
 
   describe('deletePerson', () => {
@@ -105,6 +124,23 @@ describe('Person Store', () => {
 
       const state = usePersonStore.getState()
       expect(state.persons).toHaveLength(0)
+    })
+
+    it('should set error and rethrow when delete fails', async () => {
+      const person = {
+        id: '1',
+        name: 'Test Person',
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+      }
+      usePersonStore.setState({ persons: [person] })
+
+      vi.mocked(personService.delete).mockRejectedValue(new Error('delete failed'))
+
+      await expect(usePersonStore.getState().deletePerson('1')).rejects.toThrow('delete failed')
+
+      const state = usePersonStore.getState()
+      expect(state.error).toBeTruthy()
+      expect(state.loading).toBe(false)
     })
   })
 
@@ -130,6 +166,43 @@ describe('Person Store', () => {
       const state = usePersonStore.getState()
       expect(state.persons).toHaveLength(2)
       expect(state.loading).toBe(false)
+    })
+
+    it('should set error when fetch fails', async () => {
+      vi.mocked(personService.getAll).mockRejectedValue(new Error('fetch failed'))
+
+      await usePersonStore.getState().fetchPersons()
+
+      const state = usePersonStore.getState()
+      expect(state.error).toBeTruthy()
+      expect(state.loading).toBe(false)
+    })
+  })
+
+  describe('selectors', () => {
+    it('should return person by id and all persons', () => {
+      const persons = [
+        {
+          id: '1',
+          name: 'Person 1',
+          createdAt: new Date('2024-01-01T00:00:00Z'),
+        },
+        {
+          id: '2',
+          name: 'Person 2',
+          createdAt: new Date('2024-01-02T00:00:00Z'),
+        },
+      ]
+
+      usePersonStore.setState({ persons })
+
+      const byId = usePersonStore.getState().getPersonById('2')
+      const missing = usePersonStore.getState().getPersonById('missing')
+      const all = usePersonStore.getState().getAllPersons()
+
+      expect(byId?.name).toBe('Person 2')
+      expect(missing).toBeUndefined()
+      expect(all).toHaveLength(2)
     })
   })
 })
