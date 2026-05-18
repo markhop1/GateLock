@@ -6,6 +6,7 @@ Por defecto utiliza los embeddings de InsightFace (MBF/MobileFaceNet pre-entrena
 más precisos que un MobileFaceNet sin modelo. Fallback a MobileFaceNet si no hay embedding.
 """
 import os
+import sys
 import glob
 import argparse
 import numpy as np
@@ -13,6 +14,8 @@ from pathlib import Path
 from tqdm import tqdm
 import cv2
 import logging
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import albumentations as A
 from insightface.utils import face_align
