@@ -115,7 +115,7 @@ class SessionLogger:
     def close(self) -> None:
         if self._file and not self._file.closed:
             self._file.close()
-        logger.info(f"SessionLogger cerrado: {self.csv_path}")
+            logger.info(f"SessionLogger cerrado: {self.csv_path}")
 
     def __del__(self) -> None:
         self.close()

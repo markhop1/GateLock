@@ -477,7 +477,8 @@ def main():
     if args.db_dir:
         from pathlib import Path as _Path
         from config import EMBEDDINGS_FILE, LABELS_FILE
-        db_dir = _Path(args.db_dir)
+        _raw = _Path(args.db_dir)
+        db_dir = _raw if _raw.is_absolute() else (_Path(__file__).parent / _raw).resolve()
         system.database = FaceDatabase(
             embeddings_file=db_dir / EMBEDDINGS_FILE.name,
             labels_file=db_dir / LABELS_FILE.name,
