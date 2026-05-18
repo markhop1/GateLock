@@ -14,6 +14,14 @@ const ACTION_UNLOCK = 1
 const ACTION_LOCK = 2
 const ACTION_UNLATCH = 3
 
+// Guard against concurrent unlock requests.
+// The Nuki Web API enforces rate limits (4 req/s, 100/min, 1000/hr) and the
+// lock itself returns completion state "Too recent" (state=3) when a new action
+// arrives before the previous one has finished. A module-level flag ensures that
+// only one unlock call is in-flight at a time; subsequent calls are silently
+// dropped instead of hitting the API concurrently.
+let unlockInFlight = false
+
 function isConfigured(): boolean {
   return Boolean(NUKI_TOKEN && NUKI_SMARTLOCK_ID)
 }
@@ -38,6 +46,11 @@ export async function unlock(options?: { throwOnError?: boolean }): Promise<void
     return
   }
 
+  if (unlockInFlight) {
+    console.warn('[Nuki] Unlock already in progress, dropping duplicate request')
+    return
+  }
+
   const smartlockId = Number.parseInt(NUKI_SMARTLOCK_ID!, 10)
   if (Number.isNaN(smartlockId)) {
     console.error('[Nuki] Invalid NUKI_SMARTLOCK_ID:', NUKI_SMARTLOCK_ID)
@@ -47,6 +60,7 @@ export async function unlock(options?: { throwOnError?: boolean }): Promise<void
     return
   }
 
+  unlockInFlight = true
   try {
     const nuki = new Nuki(NUKI_TOKEN!)
     const action = getActionCode()
@@ -57,6 +71,8 @@ export async function unlock(options?: { throwOnError?: boolean }): Promise<void
     if (options?.throwOnError) {
       throw error
     }
+  } finally {
+    unlockInFlight = false
   }
 }
 

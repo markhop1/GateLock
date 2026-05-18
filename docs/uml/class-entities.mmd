@@ -1,0 +1,163 @@
+classDiagram
+    direction LR
+
+    class User {
+      +ObjectId _id
+      +string email
+      +string password
+      +string name
+      +Date createdAt
+      +Date updatedAt
+      +comparePassword(candidatePassword) Promise~boolean~
+    }
+
+    class Person {
+      +ObjectId _id
+      +string name
+      +string email?
+      +string photoUrl?
+      +ObjectId userId
+      +Date createdAt
+      +Date updatedAt
+    }
+
+    class Alert {
+      +ObjectId _id
+      +ObjectId personId
+      +string personName
+      +string videoUrl
+      +string message
+      +AlertStatus status
+      +ObjectId userId
+      +Date timestamp
+      +Date decisionTimestamp?
+      +Date createdAt
+      +Date updatedAt
+    }
+
+    class AlertStatus {
+      <<enumeration>>
+      pending
+      accepted
+      ignored
+      unanswered
+    }
+
+    class FaceRecognitionSystem {
+      -RetinaFaceDetector detector
+      -MobileFaceNetRecognizer recognizer
+      -FaceDatabase database
+      -VideoClipRecorder video_recorder
+      -APIAuth auth
+      -GateLockAPI api
+      +initialize()
+      +run(show_preview)
+      +cleanup()
+      +_process_detection(detection, frame) Optional~string~
+      +_send_alert(person_name, similarity, video_path)
+    }
+
+    class RetinaFaceDetector {
+      -string model_name
+      -Tuple det_size
+      +initialize(ctx_id)
+      +detect_faces(frame, min_confidence) List~FaceDetection~
+      +detect_largest_face(frame, min_confidence) FaceDetection
+      +extract_embedding_from_face(face_image_rgb) np.ndarray
+    }
+
+    class FaceDetection {
+      +np.ndarray bbox
+      +np.ndarray landmarks?
+      +float confidence
+      +np.ndarray embedding?
+      +x1 int
+      +y1 int
+      +x2 int
+      +y2 int
+      +width int
+      +height int
+      +get_face_crop(frame) np.ndarray
+    }
+
+    class MobileFaceNetRecognizer {
+      -Path model_path
+      -Tuple input_size
+      -int embedding_size
+      +initialize()
+      +extract_embedding(face_image) np.ndarray
+      +recognize_face(face_detection, frame) Tuple~np.ndarray,np.ndarray~
+      +get_embedding_size() int
+    }
+
+    class FaceDatabase {
+      -Path embeddings_file
+      -Path labels_file
+      -np.ndarray embeddings?
+      -np.ndarray labels?
+      +load() bool
+      +find_match(embedding, threshold, top_k) Tuple~string,float~
+      +find_matches(embedding, threshold, top_k) List~Tuple~
+      +get_person_count() int
+      +get_total_embeddings() int
+      +is_loaded() bool
+    }
+
+    class VideoClipRecorder {
+      -int fps
+      -int buffer_seconds
+      -int clip_duration_seconds
+      -Path output_dir
+      -bool is_recording
+      +add_frame(frame)
+      +start_recording()
+      +stop_recording(identity) Path
+      +should_continue_recording() bool
+      +get_recording_duration() float
+      +reset()
+    }
+
+    class CameraCaptureThread {
+      -cv2.VideoCapture camera
+      -VideoClipRecorder video_recorder
+      +stop()
+      +get_latest_frame() np.ndarray
+      +run()
+    }
+
+    class APIAuth {
+      -string base_url
+      -Path token_cache_file
+      -string _token?
+      -float _token_expires_at?
+      +login(email, password) bool
+      +get_token() string
+      +is_authenticated() bool
+      +logout()
+    }
+
+    class GateLockAPI {
+      -string base_url
+      -APIAuth auth
+      +upload_video(video_path) string
+      +create_alert(person_name, video_url, message, person_id) dict
+      +test_connection() bool
+    }
+
+    User "1" --> "0..*" Person : owns
+    User "1" --> "0..*" Alert : receives
+    Person "1" --> "0..*" Alert : triggers
+    Alert --> AlertStatus : uses
+
+    FaceRecognitionSystem *-- RetinaFaceDetector
+    FaceRecognitionSystem *-- MobileFaceNetRecognizer
+    FaceRecognitionSystem *-- FaceDatabase
+    FaceRecognitionSystem *-- VideoClipRecorder
+    FaceRecognitionSystem *-- APIAuth
+    FaceRecognitionSystem *-- GateLockAPI
+    FaceRecognitionSystem *-- CameraCaptureThread
+
+    RetinaFaceDetector --> FaceDetection : creates
+    MobileFaceNetRecognizer --> FaceDetection : consumes
+    CameraCaptureThread --> VideoClipRecorder : feeds frames
+    GateLockAPI --> APIAuth : uses token
