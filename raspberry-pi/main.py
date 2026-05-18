@@ -29,6 +29,7 @@ from api.auth import APIAuth
 from api.client import GateLockAPI
 
 from config import VIDEO_FPS
+from utils.session_logger import SessionLogger
 
 # Configurar logging
 logging.basicConfig(
@@ -74,6 +75,9 @@ class FaceRecognitionSystem:
         self.last_recognized_in_session: Optional[str] = None  # Última persona reconocida en esta grabación
         self.last_similarity: float = 0.0  # Similitud del último reconocimiento
         
+        # Logger de sesión de evaluación (None si no se activa)
+        self.session_logger: Optional[SessionLogger] = None
+
         # Señal de shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -197,15 +201,25 @@ class FaceRecognitionSystem:
             
             # Buscar en base de datos
             person_name, similarity = self.database.find_match(embedding, threshold=RECOGNITION_THRESHOLD)
-            
-            if person_name and similarity >= RECOGNITION_THRESHOLD:
+            matched = person_name is not None and similarity >= RECOGNITION_THRESHOLD
+
+            # Registrar evento en sesión de evaluación (independiente del cooldown de alertas)
+            if self.session_logger is not None:
+                self.session_logger.log_event(
+                    predicted_name=person_name if matched else None,
+                    similarity=similarity,
+                    matched=matched,
+                    threshold=RECOGNITION_THRESHOLD,
+                )
+
+            if matched:
                 logger.info(f"Persona reconocida: {person_name} (similitud: {similarity:.3f})")
                 self.last_recognized_in_session = person_name
                 self.last_similarity = similarity
                 # NO enviar alerta aquí: se difiere hasta que el clip termine (300 frames o 2s sin rostros).
                 # Enviar antes cortaba la grabación en 1-2 segundos y producía clips demasiado cortos.
                 return person_name
-            
+
             return None
             
         except Exception as e:
@@ -405,19 +419,22 @@ class FaceRecognitionSystem:
     def cleanup(self):
         """Limpia recursos al cerrar."""
         logger.info("Limpiando recursos...")
-        
+
+        if self.session_logger is not None:
+            self.session_logger.close()
+
         if self.video_recorder.is_recording:
             self.video_recorder.stop_recording()
-        
+
         if self.capture_thread:
             self.capture_thread.stop()
             self.capture_thread.join(timeout=2.0)
-        
+
         if self.camera:
             self.camera.release()
-        
+
         cv2.destroyAllWindows()
-        
+
         logger.info("Recursos liberados")
 
 
@@ -431,10 +448,48 @@ def main():
         action="store_true",
         help="Mostrar preview de la cámara"
     )
+    parser.add_argument(
+        "--eval-session",
+        type=str,
+        default=None,
+        metavar="SESSION_NAME",
+        help=(
+            "Activa el registro de sesión de evaluación. "
+            "Los eventos se guardan en evaluation/sessions/<SESSION_NAME>.csv. "
+            "Ejemplo: --eval-session sesion_01"
+        ),
+    )
+    parser.add_argument(
+        "--db-dir",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help=(
+            "Directorio con face_embeddings.npy y face_labels.npy a usar. "
+            "Si no se especifica, usa el directorio por defecto (DATABASE_DIR). "
+            "Ejemplo: --db-dir evaluation/db_aug"
+        ),
+    )
     args = parser.parse_args()
-    
+
     system = FaceRecognitionSystem()
-    
+
+    if args.db_dir:
+        from pathlib import Path as _Path
+        from config import EMBEDDINGS_FILE, LABELS_FILE
+        db_dir = _Path(args.db_dir)
+        system.database = FaceDatabase(
+            embeddings_file=db_dir / EMBEDDINGS_FILE.name,
+            labels_file=db_dir / LABELS_FILE.name,
+        )
+        logger.info(f"DB personalizada: {db_dir}")
+
+    if args.eval_session:
+        from pathlib import Path as _Path
+        session_csv = _Path(__file__).parent / "evaluation" / "sessions" / f"{args.eval_session}.csv"
+        system.session_logger = SessionLogger(session_csv)
+        logger.info(f"Modo evaluación activo — CSV: {session_csv}")
+
     try:
         system.initialize()
         system.run(show_preview=args.preview)

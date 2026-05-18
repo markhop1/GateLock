@@ -14,19 +14,14 @@ from tqdm import tqdm
 import cv2
 import logging
 
+import albumentations as A
+from insightface.utils import face_align
+
 from config import (
     KNOWN_FACES_DIR, DATABASE_DIR, EMBEDDINGS_FILE, LABELS_FILE,
-    MAX_IMAGES_PER_ID
+    MAX_IMAGES_PER_ID, AUG_PER_IMAGE
 )
-# NOTA: Se realizaron pruebas con augmentación de datos (albumentations + PIL) pero no se
-# determinó mejora en el rendimiento del reconocimiento con buffalo_l. Los embeddings de
-# InsightFace calculados sobre la imagen original completa resultaron más estables que los
-# obtenidos tras re-detectar sobre crops aumentados. Se mantiene el código comentado como
-# referencia.
-#
-# import albumentations as A
-# from PIL import Image
-# from config import AUG_PER_IMAGE  # también eliminar de la importación de arriba si se reactiva
+
 from detection.face_detector import RetinaFaceDetector
 from recognition.face_recognizer import MobileFaceNetRecognizer
 
@@ -40,49 +35,48 @@ def l2_normalize(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
-# AUGMENTACIÓN — Código desactivado
+# AUGMENTACIÓN — pipeline sobre normed crop (activo con --augment)
 #
-# Se probó un pipeline de augmentación para aumentar artificialmente el número
-# de embeddings por identidad. No se observó mejora en similitud intra-clase
-# ni reducción de falsos negativos. El problema principal era que InsightFace
-# no puede re-extraer embeddings de alta calidad sobre crops pequeños ya
-# aumentados (baja resolución + artefactos de blur/noise). Desactivado en
-# favor de usar directamente el embedding de la detección original.
-#
-# def build_augmenter():
-#     """Construye un pipeline de augmentación para tests y experimentación."""
-#     return A.Compose(
-#         [
-#             A.RandomBrightnessContrast(brightness_limit=0.35, contrast_limit=0.25, p=0.9),
-#             A.RandomGamma(gamma_limit=(70, 150), p=0.7),
-#             A.HueSaturationValue(hue_shift_limit=5, sat_shift_limit=20, val_shift_limit=10, p=0.6),
-#             A.OneOf(
-#                 [
-#                     A.GaussianBlur(blur_limit=(3, 7), p=1.0),
-#                     A.MotionBlur(blur_limit=7, p=1.0),
-#                 ],
-#                 p=0.25,
-#             ),
-#             A.GaussNoise(std_range=(0.01, 0.05), mean_range=(0.0, 0.0), per_channel=True, p=0.25),
-#             A.ImageCompression(quality_range=(35, 95), compression_type="jpeg", p=0.25),
-#         ]
-#     )
-#
-#
-# def quality_gate(face_rgb: np.ndarray) -> bool:
-#     """Filtra rostros demasiado oscuros o sobreexpuestos."""
-#     gray = cv2.cvtColor(face_rgb, cv2.COLOR_RGB2GRAY)
-#     mean = float(gray.mean())
-#     near_black = float((gray < 10).mean())
-#     near_white = float((gray > 245).mean())
-#     if mean < 35 or mean > 220:
-#         return False
-#     if near_black > 0.25:
-#         return False
-#     if near_white > 0.25:
-#         return False
-#     return True
+#     InsightFace detecta sobre la imagen original → se extrae el normed
+#     crop (112×112, face_align.norm_crop) → aug aplicada al crop alineado →
+#     el modelo de reconocimiento (rec.get_feat) extrae el embedding sin necesidad
+#     de re-detectar.
 # ---------------------------------------------------------------------------
+
+
+def build_augmenter() -> A.Compose:
+    """Pipeline de augmentación para normed crops (112×112, RGB)."""
+    return A.Compose(
+        [
+            A.RandomBrightnessContrast(brightness_limit=0.35, contrast_limit=0.25, p=0.9),
+            A.RandomGamma(gamma_limit=(70, 150), p=0.7),
+            A.HueSaturationValue(hue_shift_limit=5, sat_shift_limit=20, val_shift_limit=10, p=0.6),
+            A.OneOf(
+                [
+                    A.GaussianBlur(blur_limit=(3, 7), p=1.0),
+                    A.MotionBlur(blur_limit=7, p=1.0),
+                ],
+                p=0.25,
+            ),
+            A.GaussNoise(std_range=(0.01, 0.05), mean_range=(0.0, 0.0), per_channel=True, p=0.25),
+            A.ImageCompression(quality_range=(35, 95), compression_type="jpeg", p=0.25),
+        ]
+    )
+
+
+def quality_gate(face_rgb: np.ndarray) -> bool:
+    """Filtra crops demasiado oscuros o sobreexpuestos."""
+    gray = cv2.cvtColor(face_rgb, cv2.COLOR_RGB2GRAY)
+    mean = float(gray.mean())
+    near_black = float((gray < 10).mean())
+    near_white = float((gray > 245).mean())
+    if mean < 35 or mean > 220:
+        return False
+    if near_black > 0.25:
+        return False
+    if near_white > 0.25:
+        return False
+    return True
 
 
 def list_identities(root_dir: Path) -> list:
@@ -123,8 +117,15 @@ def main():
     parser.add_argument(
         "--aug_per_image",
         type=int,
-        default=0,
-        help="Compatibilidad retroactiva: reservado, actualmente sin uso"
+        default=AUG_PER_IMAGE,
+        help="Número de versiones augmentadas por imagen (solo con --augment, default: %(default)s)"
+    )
+    parser.add_argument(
+        "--augment",
+        action="store_true",
+        default=False,
+        help="Activar augmentación sobre normed crop. Genera embeddings adicionales por imagen "
+             "y guarda los archivos con sufijo _aug."
     )
     parser.add_argument(
         "--output_dir",
@@ -149,6 +150,10 @@ def main():
 
     recognizer = MobileFaceNetRecognizer()
     recognizer.initialize()
+
+    augmenter = build_augmenter() if args.augment else None
+    if args.augment:
+        logger.info(f"Augmentación activada: {args.aug_per_image} versiones por imagen (normed crop)")
 
     # Listar identidades
     identities = list_identities(data_dir)
@@ -204,10 +209,22 @@ def main():
 
                 collected.append(emb)
 
-                # AUGMENTACIÓN DESACTIVADA — ver nota al inicio del archivo.
-                # Si se reactiva: inicializar aug = build_augmenter() antes del loop,
-                # iterar aug_per_image veces, filtrar con quality_gate() y extraer
-                # embedding con detector.extract_embedding_from_face(aug_rgb).
+                # Augmentación sobre normed crop (solo con --augment)
+                if augmenter is not None and getattr(largest, 'kps', None) is not None:
+                    try:
+                        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+                        aimg_rgb = face_align.norm_crop(img_rgb, landmark=largest.kps, image_size=112)
+                        rec_model = detector.app.models.get('recognition')
+                        if rec_model is not None:
+                            for _ in range(args.aug_per_image):
+                                aug_rgb = augmenter(image=aimg_rgb)['image']
+                                if not quality_gate(aug_rgb):
+                                    continue
+                                aug_bgr = cv2.cvtColor(aug_rgb, cv2.COLOR_RGB2BGR)
+                                aug_emb = rec_model.get_feat([aug_bgr])[0]
+                                collected.append(l2_normalize(aug_emb.flatten()))
+                    except Exception as aug_err:
+                        logger.debug(f"Error en augmentación para {img_path}: {aug_err}")
 
             except Exception as e:
                 logger.warning(f"Error procesando {img_path}: {e}")
@@ -238,12 +255,19 @@ def main():
     id_list = sorted(per_id_agg.keys())
     embeddings_array = np.stack([per_id_agg[i] for i in id_list], axis=0)
     labels_array = np.array(id_list)
-    
+
+    # Siempre guardar con el nombre estándar (face_embeddings.npy) para que main.py
+    # lo encuentre sin configuración extra.
     embeddings_path = output_dir / EMBEDDINGS_FILE.name
     labels_path = output_dir / LABELS_FILE.name
-    
     np.save(embeddings_path, embeddings_array)
     np.save(labels_path, labels_array)
+
+    # Guardar además una copia con sufijo _aug / _noaug para el análisis comparativo
+    # offline con evaluate_recognition.py (no sobreescribe el anterior).
+    suffix = "_aug" if args.augment else "_noaug"
+    np.save(output_dir / f"{EMBEDDINGS_FILE.stem}{suffix}.npy", embeddings_array)
+    np.save(output_dir / f"{LABELS_FILE.stem}{suffix}.npy", labels_array)
     
     logger.info(f"\n=== Resumen ===")
     logger.info(f"Base de datos creada:")
