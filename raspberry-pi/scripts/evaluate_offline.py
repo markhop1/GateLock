@@ -249,13 +249,62 @@ def build_face_app() -> FaceAnalysis:
     return app
 
 
+def _get_faces_robust(app: FaceAnalysis, img_bgr: np.ndarray):
+    """
+    Detecta caras, reintentando con padding si la imagen es pequeña.
+    Las imágenes de sklearn (fetch_lfw_people) son crops ~125×94 px sin contexto;
+    añadir padding reflectante permite al detector encontrar la cara.
+    Devuelve (faces, img_utilizada).
+    """
+    faces = app.get(img_bgr)
+    if faces:
+        return faces, img_bgr
+    h, w = img_bgr.shape[:2]
+    if h < 200 or w < 200:
+        ph, pw = h, w  # 100% de padding en cada lado
+        padded = cv2.copyMakeBorder(img_bgr, ph, ph, pw, pw, cv2.BORDER_REPLICATE)
+        # Escalar hasta al menos 300 px para que el detector tenga resolución suficiente
+        scale = max(1.0, 300 / padded.shape[0], 300 / padded.shape[1])
+        if scale > 1.0:
+            nh = int(padded.shape[0] * scale)
+            nw = int(padded.shape[1] * scale)
+            padded = cv2.resize(padded, (nw, nh), cv2.INTER_LANCZOS4)
+        faces = app.get(padded)
+        if faces:
+            return faces, padded
+    return [], img_bgr
+
+
+def _embed_precropped(app: FaceAnalysis, img_bgr: np.ndarray) -> Optional[np.ndarray]:
+    """
+    Embedding directo para crops de cara ya alineados (p. ej. sklearn LFW ~125×94 px).
+    Redimensiona a 112×112 y usa el modelo ArcFace directamente, sin detección.
+    Las imágenes sklearn son la versión 'funneled' de LFW: ya están centradas y
+    alineadas, exactamente el formato que ArcFace espera como entrada.
+    """
+    rec = app.models.get("recognition")
+    if rec is None:
+        return None
+    face_112 = cv2.resize(img_bgr, (112, 112), interpolation=cv2.INTER_LANCZOS4)
+    try:
+        emb = rec.get_feat([face_112]).flatten().astype(np.float32)
+    except Exception:
+        return None
+    norm = np.linalg.norm(emb)
+    return emb / norm if norm > 1e-12 else emb
+
+
 def get_embedding(app: FaceAnalysis, img_bgr: np.ndarray) -> Optional[np.ndarray]:
     """Devuelve embedding L2-normalizado 512D o None si no hay cara."""
-    faces = app.get(img_bgr)
-    if not faces:
-        return None
-    face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
-    return face.normed_embedding.astype(np.float32)
+    faces, _ = _get_faces_robust(app, img_bgr)
+    if faces:
+        face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+        return face.normed_embedding.astype(np.float32)
+    # Fallback: embedding directo para crops pre-alineados (imágenes sklearn < 200 px)
+    h, w = img_bgr.shape[:2]
+    if h < 200 or w < 200:
+        return _embed_precropped(app, img_bgr)
+    return None
 
 
 # ── Augmentación ──────────────────────────────────────────────────────────────
@@ -277,11 +326,16 @@ def _build_augmenter():
 def _augment_embeddings(
     app: FaceAnalysis, img_bgr: np.ndarray, augmenter, n: int
 ) -> list[np.ndarray]:
-    faces = app.get(img_bgr)
-    if not faces:
-        return []
-    face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
-    crop     = _face_align.norm_crop(img_bgr, face.kps)        # 112×112 BGR
+    faces, img_used = _get_faces_robust(app, img_bgr)
+    if faces:
+        face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+        crop = _face_align.norm_crop(img_used, face.kps)        # 112×112 BGR
+    else:
+        # Fallback para crops pre-alineados (sklearn LFW < 200 px)
+        h, w = img_bgr.shape[:2]
+        if h >= 200 and w >= 200:
+            return []  # imagen grande sin cara detectada
+        crop = cv2.resize(img_bgr, (112, 112), interpolation=cv2.INTER_LANCZOS4)
     crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
 
     embs = []
