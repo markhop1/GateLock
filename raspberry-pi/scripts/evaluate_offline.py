@@ -11,30 +11,33 @@ Pipeline:
        b. Pares genuine/impostor → ROC, AUC, EER (curva suave, no escalera)
   5. Genera un Excel con 5 hojas y gráficas.
 
-Cómo conseguir los datos (LFW):
-  # Descarga LFW directamente (~172 MB, sin TensorFlow)
-  python scripts/evaluate_offline.py --download-lfw /tmp/lfw --max-people 100 --min-photos 8
+Uso (ejecutar desde ~/GateLock/raspberry-pi):
 
-Uso mínimo:
+  # Descarga LFW automáticamente y evalúa
   python scripts/evaluate_offline.py \\
-      --data-dir  /tmp/lfw            \\
-      --output    evaluacion_lfw.xlsx
+      --download-lfw ~/data/lfw \\
+      --output       ~/resultados/evaluacion_noaug.xlsx \\
+      --max-people 50 --min-photos 8
 
-Uso completo:
+  # Con datos ya descargados
   python scripts/evaluate_offline.py \\
-      --data-dir      /tmp/lfw        \\
-      --output        evaluacion_lfw.xlsx \\
-      --enroll-ratio  0.5             \\
-      --min-photos    6               \\
-      --max-people    100             \\
-      --threshold     0.30            \\
-      --augment                       \\
-      --aug-per-image 10              \\
-      --seed          42
+      --data-dir  ~/data/lfw \\
+      --output    ~/resultados/evaluacion_noaug.xlsx
+
+  # Con augmentación (para comparar)
+  python scripts/evaluate_offline.py \\
+      --data-dir      ~/data/lfw \\
+      --output        ~/resultados/evaluacion_aug.xlsx \\
+      --augment --aug-per-image 10
+
+Descarga de LFW:
+  El script intenta primero http://vis-www.cs.umass.edu/lfw/lfw.tgz.
+  Si falla, usa scikit-learn como fallback (mirror Figshare, ~233 MB).
+  Instalar fallback: pip install scikit-learn pillow
 
 Requisitos: insightface  openpyxl  opencv-python  numpy  tqdm
             albumentations  (solo con --augment)
-            requests + pillow (solo con --download-lfw)
+            scikit-learn pillow  (fallback de descarga)
 """
 
 from __future__ import annotations
@@ -85,62 +88,119 @@ LFW_URL = "http://vis-www.cs.umass.edu/lfw/lfw.tgz"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Descarga de LFW sin TensorFlow
+# Descarga de LFW
 # ══════════════════════════════════════════════════════════════════════════════
+
+def _download_lfw_sklearn(dest: Path, max_people: int, min_photos: int) -> None:
+    """
+    Fallback: descarga LFW via scikit-learn desde Figshare (~233 MB, versión funneled).
+    Requiere: pip install scikit-learn pillow
+    """
+    try:
+        from sklearn.datasets import fetch_lfw_people
+        from PIL import Image as PILImage
+    except ImportError:
+        raise RuntimeError(
+            "scikit-learn y/o pillow no están instalados.\n"
+            "  pip install scikit-learn pillow\n"
+            "O descarga LFW manualmente desde Kaggle y cópialo a la Pi:\n"
+            "  https://www.kaggle.com/datasets/jessicali9530/lfw-dataset"
+        )
+
+    logger.info("Descargando LFW via scikit-learn (mirror Figshare) ...")
+    lfw = fetch_lfw_people(
+        min_faces_per_person=min_photos,
+        resize=1.0,
+        color=True,
+        download_if_missing=True,
+    )
+
+    # lfw.images: [N, H, W, 3]  float32 en [0,1]  ó  uint8
+    # lfw.target: índice de clase por muestra
+    # lfw.target_names: nombres de personas
+    logger.info(f"  → {len(lfw.target_names)} personas, {len(lfw.images)} fotos descargadas")
+
+    # Contar fotos por persona y limitar a max_people (los que más fotos tienen)
+    from collections import Counter
+    counts  = Counter(lfw.target)
+    top_ids = {idx for idx, _ in counts.most_common(max_people)}
+
+    saved = 0
+    for i, (img, t) in enumerate(tqdm(zip(lfw.images, lfw.target), total=len(lfw.images), desc="Guardando")):
+        if t not in top_ids:
+            continue
+        person_dir = dest / lfw.target_names[t]
+        person_dir.mkdir(parents=True, exist_ok=True)
+        img_u8 = (img * 255).clip(0, 255).astype("uint8") if img.dtype != "uint8" else img
+        PILImage.fromarray(img_u8).save(person_dir / f"{i:05d}.jpg")
+        saved += 1
+
+    logger.info(f"  → {saved} fotos guardadas en {dest}")
+
 
 def download_lfw(dest: Path, max_people: int, min_photos: int) -> None:
     """
-    Descarga LFW (~172 MB) y organiza las fotos en dest/person_name/foto.jpg.
-    Solo guarda personas con >= min_photos imágenes.
-    Limita a max_people personas (las que más fotos tienen).
+    Descarga LFW y organiza las fotos en dest/person_name/foto.jpg.
+    Intenta primero la URL directa de UMass; si falla, usa scikit-learn (Figshare).
     """
     dest.mkdir(parents=True, exist_ok=True)
+
+    # ── ¿Ya está descargado? ──────────────────────────────────────────────────
+    existing = [d for d in dest.iterdir() if d.is_dir()]
+    if existing:
+        logger.info(f"Directorio ya contiene {len(existing)} carpetas, usando caché: {dest}")
+        return
+
+    # ── Intentar descarga directa ─────────────────────────────────────────────
     tgz_path = dest / "lfw.tgz"
+    direct_ok = False
 
     if not tgz_path.exists():
-        logger.info(f"Descargando LFW desde {LFW_URL} ...")
+        logger.info(f"Intentando descarga directa desde {LFW_URL} ...")
+        try:
+            def _progress(block_num, block_size, total_size):
+                downloaded = block_num * block_size
+                if total_size > 0:
+                    pct = min(100, downloaded * 100 // total_size)
+                    print(f"\r  {pct}% ({downloaded // 1_048_576} MB / {total_size // 1_048_576} MB)", end="")
 
-        def _progress(block_num, block_size, total_size):
-            downloaded = block_num * block_size
-            if total_size > 0:
-                pct = min(100, downloaded * 100 // total_size)
-                print(f"\r  {pct}% ({downloaded // 1_048_576} MB / {total_size // 1_048_576} MB)", end="")
-
-        urllib.request.urlretrieve(LFW_URL, tgz_path, reporthook=_progress)
-        print()
-        logger.info("Descarga completada.")
+            urllib.request.urlretrieve(LFW_URL, tgz_path, reporthook=_progress)
+            print()
+            direct_ok = True
+            logger.info("Descarga directa completada.")
+        except Exception as e:
+            logger.warning(f"Descarga directa fallida ({e}). Usando mirror scikit-learn (Figshare) ...")
+            if tgz_path.exists():
+                tgz_path.unlink()
     else:
-        logger.info(f"Archivo ya existe: {tgz_path}, usando caché.")
+        direct_ok = True
 
-    # Extraer y contar fotos por persona
+    if not direct_ok:
+        _download_lfw_sklearn(dest, max_people, min_photos)
+        return
+
+    # ── Extraer .tgz ─────────────────────────────────────────────────────────
     logger.info("Extrayendo y filtrando personas ...")
-    with tarfile.open(tgz_path, "r:gz") as tar:
-        members = tar.getmembers()
-
-    # Agrupar miembros por persona
     by_person: dict[str, list] = defaultdict(list)
     with tarfile.open(tgz_path, "r:gz") as tar:
         for m in tar.getmembers():
             parts = Path(m.name).parts
             if len(parts) < 3 or not m.name.lower().endswith(tuple(SUPPORTED_EXTS)):
                 continue
-            person = parts[1]
-            by_person[person].append(m)
+            by_person[parts[1]].append(m)
 
-    # Filtrar y limitar
     qualified = {p: ms for p, ms in by_person.items() if len(ms) >= min_photos}
     selected  = dict(sorted(qualified.items(), key=lambda x: -len(x[1]))[:max_people])
-    logger.info(f"  → {len(selected)} personas seleccionadas con >= {min_photos} fotos")
+    logger.info(f"  → {len(selected)} personas con >= {min_photos} fotos")
 
     with tarfile.open(tgz_path, "r:gz") as tar:
         for person, members in tqdm(selected.items(), desc="Extrayendo"):
             person_dir = dest / person
             person_dir.mkdir(exist_ok=True)
             for m in members:
-                fname = Path(m.name).name
                 f = tar.extractfile(m)
                 if f:
-                    (person_dir / fname).write_bytes(f.read())
+                    (person_dir / Path(m.name).name).write_bytes(f.read())
 
     logger.info(f"LFW preparado en: {dest}")
 
