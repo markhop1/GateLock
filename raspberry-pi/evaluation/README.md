@@ -5,7 +5,7 @@
 enrollment/{name}/   ? N photos per person to build the face DB (e.g. 5-10 JPGs)
 probes/{name}/       ? M DIFFERENT photos of the same people to test against (e.g. 3-5 JPGs)
 impostors/           ? Unknown people (LFW). Populate with:
-                       python scripts/download_lfw_fixtures.py --output evaluation/impostors/ --max-people 20 --max-images-per 3
+                       python scripts/evaluate_offline.py --download-lfw evaluation/impostors/ --max-people 20 --min-photos 3
 
 ## Usage
 

@@ -154,23 +154,16 @@ known_faces/
 
 #### Descargar imágenes de prueba con LFW (opcional)
 
-Para obtener imágenes reales rápidamente sin buscar fotos manualmente, usa el dataset LFW (Labeled Faces in the Wild):
+Para obtener imágenes reales rápidamente sin buscar fotos manualmente, usa el dataset LFW (Labeled Faces in the Wild). La descarga está integrada en el script de evaluación offline:
 
 ```bash
-pip install tensorflow-datasets
-python scripts/download_lfw_fixtures.py
+python scripts/evaluate_offline.py \
+    --download-lfw /tmp/lfw \
+    --output evaluacion_lfw.xlsx \
+    --max-people 100 --min-photos 8
 ```
 
-Esto descarga ~172 MB la primera vez y guarda imágenes en `known_faces/` (5 personas, 5 fotos cada una por defecto).
-
-Opciones:
-```bash
-# Cambiar destino (p. ej. para fixtures de tests)
-python scripts/download_lfw_fixtures.py --output tests/fixtures/test_images
-
-# Más personas e imágenes
-python scripts/download_lfw_fixtures.py --max-people 10 --max-images-per 8
-```
+Esto descarga ~172 MB la primera vez y guarda imágenes en el directorio indicado, sin necesidad de TensorFlow.
 
 ### 2. Construir base de datos de embeddings
 
@@ -211,7 +204,7 @@ raspberry-pi/
 ├── config/              # Configuración
 │   └── config.py
 ├── scripts/             # Utilidades
-│   ├── download_lfw_fixtures.py   # Descarga imágenes LFW para known_faces
+│   ├── evaluate_offline.py        # Evaluación offline con LFW u otras fotos
 │   └── run_all_tests.py
 ├── database/            # Base de datos de embeddings
 │   ├── build_database.py

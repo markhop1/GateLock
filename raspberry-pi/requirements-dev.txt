@@ -3,7 +3,6 @@
 
 # Testing dependencies
 pytest>=7.4.0
-tensorflow-datasets>=4.9.0  # For download_lfw_fixtures.py (LFW face images)
 pytest-cov>=4.1.0
 pytest-mock>=3.11.1
 responses>=0.24.0  # Para mock de requests HTTP
