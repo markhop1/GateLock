@@ -132,7 +132,9 @@ def _download_lfw_sklearn(dest: Path, max_people: int, min_photos: int) -> None:
         person_dir = dest / lfw.target_names[t]
         person_dir.mkdir(parents=True, exist_ok=True)
         img_u8 = (img * 255).clip(0, 255).astype("uint8") if img.dtype != "uint8" else img
-        PILImage.fromarray(img_u8).save(person_dir / f"{i:05d}.jpg")
+        # sklearn devuelve RGB; cv2 (e InsightFace) usa BGR → convertir antes de guardar
+        img_bgr = cv2.cvtColor(img_u8, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(str(person_dir / f"{i:05d}.jpg"), img_bgr)
         saved += 1
 
     logger.info(f"  → {saved} fotos guardadas en {dest}")
@@ -278,14 +280,27 @@ def _get_faces_robust(app: FaceAnalysis, img_bgr: np.ndarray):
 def _embed_precropped(app: FaceAnalysis, img_bgr: np.ndarray) -> Optional[np.ndarray]:
     """
     Embedding directo para crops de cara ya alineados (p. ej. sklearn LFW ~125×94 px).
-    Redimensiona a 112×112 y usa el modelo ArcFace directamente, sin detección.
+    Redimensiona a 112×112 preservando el aspecto (con padding) y usa ArcFace directamente.
     Las imágenes sklearn son la versión 'funneled' de LFW: ya están centradas y
     alineadas, exactamente el formato que ArcFace espera como entrada.
     """
     rec = app.models.get("recognition")
     if rec is None:
         return None
-    face_112 = cv2.resize(img_bgr, (112, 112), interpolation=cv2.INTER_LANCZOS4)
+    # Preservar aspecto: escalar al mayor factor que cabe en 112×112, luego centrar con padding
+    h, w = img_bgr.shape[:2]
+    scale   = min(112 / h, 112 / w)
+    new_h   = int(round(h * scale))
+    new_w   = int(round(w * scale))
+    resized = cv2.resize(img_bgr, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
+    pad_top    = (112 - new_h) // 2
+    pad_bottom = 112 - new_h - pad_top
+    pad_left   = (112 - new_w) // 2
+    pad_right  = 112 - new_w - pad_left
+    face_112 = cv2.copyMakeBorder(
+        resized, pad_top, pad_bottom, pad_left, pad_right,
+        cv2.BORDER_CONSTANT, value=0,
+    )
     try:
         emb = rec.get_feat([face_112]).flatten().astype(np.float32)
     except Exception:
