@@ -491,15 +491,20 @@ def _pct(num: float, den: float) -> float:
 
 
 def compute_roc(pairs: list[dict]) -> list[dict]:
-    y_true  = [p["label"]      for p in pairs]
-    y_score = [p["similarity"] for p in pairs]
-    total_p = sum(y_true)
-    total_n = len(y_true) - total_p
+    # Las similitudes coseno (dot-product de embeddings L2-norm) pueden ser
+    # negativas → barrer [-1, 1] con numpy para cubrir el rango completo.
+    # Si se barre sólo [0, 1], la curva no arranca en (FPR=1, TPR=1) y el AUC
+    # calculado sería sólo el área parcial (~0.66 en vez del ~0.999 real).
+    yt = np.array([p["label"]      for p in pairs], dtype=np.int8)
+    ys = np.array([p["similarity"] for p in pairs], dtype=np.float32)
+    total_p = int(yt.sum())
+    total_n = len(yt) - total_p
     points: list[dict] = []
-    for i in range(101):
-        thr = round(i / 100, 2)
-        tp  = sum(1 for yt, ys in zip(y_true, y_score) if yt == 1 and ys >= thr)
-        fp  = sum(1 for yt, ys in zip(y_true, y_score) if yt == 0 and ys >= thr)
+    for i in range(201):
+        thr = round(-1.0 + i / 100, 2)       # -1.00 … 1.00  (paso 0.01)
+        pos = ys >= thr
+        tp  = int((pos & (yt == 1)).sum())
+        fp  = int((pos & (yt == 0)).sum())
         fn  = total_p - tp
         tn  = total_n - fp
         points.append({
