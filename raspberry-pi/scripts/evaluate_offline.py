@@ -339,27 +339,28 @@ def _build_augmenter():
 
 
 def _augment_embeddings(
-    app: FaceAnalysis, img_bgr: np.ndarray, augmenter, n: int
+    app: FaceAnalysis, crop_bgr: np.ndarray, augmenter, n: int
 ) -> list[np.ndarray]:
-    faces, img_used = _get_faces_robust(app, img_bgr)
-    if faces:
-        face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
-        crop = _face_align.norm_crop(img_used, face.kps)        # 112×112 BGR
-    else:
-        # Fallback para crops pre-alineados (sklearn LFW < 200 px)
-        h, w = img_bgr.shape[:2]
-        if h >= 200 and w >= 200:
-            return []  # imagen grande sin cara detectada
-        crop = cv2.resize(img_bgr, (112, 112), interpolation=cv2.INTER_LANCZOS4)
-    crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+    """
+    Genera n embeddings augmentados a partir de un crop facial ya alineado (112×112 BGR).
+    Usa el modelo de reconocimiento directamente, sin re-ejecutar la detección.
+    """
+    rec = app.models.get("recognition")
+    if rec is None:
+        return []
 
+    crop_rgb = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2RGB)
     embs = []
     for _ in range(n):
         aug_rgb = augmenter(image=crop_rgb)["image"]
         aug_bgr = cv2.cvtColor(aug_rgb, cv2.COLOR_RGB2BGR)
-        emb = get_embedding(app, aug_bgr)
-        if emb is not None:
-            embs.append(emb)
+        try:
+            emb = rec.get_feat([aug_bgr]).flatten().astype(np.float32)
+            norm = np.linalg.norm(emb)
+            if norm > 1e-12:
+                embs.append(emb / norm)
+        except Exception:
+            pass
     return embs
 
 
@@ -392,13 +393,29 @@ def build_gallery(
             if img_bgr is None:
                 skipped += 1
                 continue
-            emb = get_embedding(app, img_bgr)
-            if emb is None:
-                skipped += 1
-                continue
-            embs.append(emb)
-            if augment and augmenter is not None:
-                embs.extend(_augment_embeddings(app, img_bgr, augmenter, aug_per_image))
+
+            # Detectar UNA sola vez y reutilizar el crop para augmentación
+            faces, img_used = _get_faces_robust(app, img_bgr)
+            if faces:
+                face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+                emb  = face.normed_embedding.astype(np.float32)
+                embs.append(emb)
+                if augment and augmenter is not None:
+                    crop = _face_align.norm_crop(img_used, face.kps)  # 112×112 BGR
+                    embs.extend(_augment_embeddings(app, crop, augmenter, aug_per_image))
+            else:
+                h, w = img_bgr.shape[:2]
+                if h < 200 or w < 200:
+                    emb = _embed_precropped(app, img_bgr)
+                    if emb is not None:
+                        embs.append(emb)
+                        if augment and augmenter is not None:
+                            crop = cv2.resize(img_bgr, (112, 112), interpolation=cv2.INTER_LANCZOS4)
+                            embs.extend(_augment_embeddings(app, crop, augmenter, aug_per_image))
+                    else:
+                        skipped += 1
+                else:
+                    skipped += 1
 
         if embs:
             mean_emb = np.mean(embs, axis=0)
@@ -491,22 +508,20 @@ def _pct(num: float, den: float) -> float:
 
 
 def compute_roc(pairs: list[dict]) -> list[dict]:
-    # Las similitudes coseno (dot-product de embeddings L2-norm) pueden ser
-    # negativas → barrer [-1, 1] con numpy para cubrir el rango completo.
-    # Si se barre sólo [0, 1], la curva no arranca en (FPR=1, TPR=1) y el AUC
-    # calculado sería sólo el área parcial (~0.66 en vez del ~0.999 real).
-    yt = np.array([p["label"]      for p in pairs], dtype=np.int8)
-    ys = np.array([p["similarity"] for p in pairs], dtype=np.float32)
-    total_p = int(yt.sum())
-    total_n = len(yt) - total_p
+    y_true  = np.array([p["label"]      for p in pairs], dtype=np.int8)
+    y_score = np.array([p["similarity"] for p in pairs], dtype=np.float32)
+    pos_mask = y_true == 1
+    neg_mask = ~pos_mask
+    total_p  = int(pos_mask.sum())
+    total_n  = int(neg_mask.sum())
     points: list[dict] = []
-    for i in range(201):
-        thr = round(-1.0 + i / 100, 2)       # -1.00 … 1.00  (paso 0.01)
-        pos = ys >= thr
-        tp  = int((pos & (yt == 1)).sum())
-        fp  = int((pos & (yt == 0)).sum())
-        fn  = total_p - tp
-        tn  = total_n - fp
+    for i in range(101):
+        thr      = round(i / 100, 2)
+        accepted = y_score >= thr
+        tp = int((accepted & pos_mask).sum())
+        fp = int((accepted & neg_mask).sum())
+        fn = total_p - tp
+        tn = total_n - fp
         points.append({
             "threshold": thr,
             "TPR":       _pct(tp, total_p),
