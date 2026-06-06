@@ -514,9 +514,17 @@ def compute_roc(pairs: list[dict]) -> list[dict]:
     neg_mask = ~pos_mask
     total_p  = int(pos_mask.sum())
     total_n  = int(neg_mask.sum())
+
+    # Usar siempre el rango completo del coseno [-1, 1] para que AUC sea
+    # comparable entre corridas con y sin augmentación.
+    roc_min_thr = -1.0
+    roc_max_thr = 1.0
+    roc_step    = 0.01
+    n_steps = int(round((roc_max_thr - roc_min_thr) / roc_step))
+
     points: list[dict] = []
-    for i in range(101):
-        thr      = round(i / 100, 2)
+    for i in range(n_steps + 1):
+        thr      = round(roc_min_thr + i * roc_step, 2)
         accepted = y_score >= thr
         tp = int((accepted & pos_mask).sum())
         fp = int((accepted & neg_mask).sum())
