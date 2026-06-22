@@ -4,6 +4,10 @@ import NotificationCard from '../components/NotificationCard'
 import { nukiService, type LockStatus } from '../services/nuki.service'
 import { BellIcon, LockClosedIcon, LockOpenIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 
+const TEST_VIDEO_URL =
+  import.meta.env.VITE_TEST_VIDEO_URL ||
+  'https://pub-b427795ae75b44378dc29f8db291966b.r2.dev/DeerDoorbell.mp4'
+
 // Función para simular notificaciones (se puede llamar desde la consola del navegador)
 declare global {
   interface Window {
@@ -74,13 +78,12 @@ export default function HomePage() {
         'María García',
         'Carlos López',
         'Ana Martínez',
-        'Pedro Sánchez',
+        'Lucía Torres',
+        'Sergio Navarro',
       ]
       const randomName = personName || names[Math.floor(Math.random() * names.length)]
       
-      // Video de ejemplo (usando un video placeholder)
-      const videoUrl =
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+      const videoUrl = TEST_VIDEO_URL
 
       addNotification({
         personId: `person-${Date.now()}`,
