@@ -102,9 +102,6 @@ export default function LoginPage() {
               Regístrate
             </Link>
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-500">
-            Tip: Presiona <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono">Ctrl+Shift+K</kbd> para login rápido de prueba
-          </p>
         </div>
       </div>
     </div>
