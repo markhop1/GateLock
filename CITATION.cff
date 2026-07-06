@@ -1,0 +1,8 @@
+cff-version: 1.0.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Sierra-Obrero"
+    given-names: "Marcos"
+title: "GateLock"
+date-released: 2026-01-07
+url: "https://github.com/markhop1/GateLock"
